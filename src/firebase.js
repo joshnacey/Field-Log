@@ -4,6 +4,8 @@ import {
   collection,
   addDoc,
   getDocs,
+  deleteDoc,
+  doc,
   query,
   orderBy,
 } from "firebase/firestore";
@@ -29,6 +31,10 @@ export async function loadCatches() {
   const q = query(collection(db, "catches"), orderBy("timestamp", "desc"));
   const snapshot = await getDocs(q);
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function deleteCatch(id) {
+  await deleteDoc(doc(db, "catches", id));
 }
 
 export function getSavedGuideName() {
