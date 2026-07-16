@@ -951,7 +951,7 @@ function MapView({ entries, loaded }) {
 
       <div
         className="rounded overflow-hidden border relative"
-        style={{ borderColor: "#D9CFB5", height: "58vh", minHeight: 320 }}
+        style={{ borderColor: "#D9CFB5", height: "42vh", minHeight: 260 }}
       >
         <div ref={containerRef} style={{ height: "100%", width: "100%" }} />
         {status === "loading" && (
