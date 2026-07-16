@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter, Cell } from "recharts";
-import { Fish, MapPin, Loader2, BookOpen, TrendingUp, Plus, X, Check, AlertTriangle, Map as MapIcon, Trash2 } from "lucide-react";
-import { saveCatch as saveCatchToDb, loadCatches, deleteCatch, getSavedGuideName, saveGuideName } from "./firebase.js";
+import { Fish, MapPin, Loader2, BookOpen, TrendingUp, Plus, X, Check, AlertTriangle, Map as MapIcon, Trash2, ClipboardList, Target } from "lucide-react";
+import { saveCatch as saveCatchToDb, loadCatches, deleteCatch, saveAAR as saveAARToDb, loadAARs, deleteAAR, getSavedGuideName, saveGuideName } from "./firebase.js";
 
 const FONT_IMPORT = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap";
 
@@ -234,6 +234,14 @@ export default function App() {
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  const [aars, setAars] = useState([]);
+  const [aarsLoaded, setAarsLoaded] = useState(false);
+  const [aarModalOpen, setAarModalOpen] = useState(false);
+  const [aarDraft, setAarDraft] = useState(null);
+  const [aarCapturing, setAarCapturing] = useState(false);
+  const [pendingAarDelete, setPendingAarDelete] = useState(null);
+  const [aarDeleting, setAarDeleting] = useState(false);
+
   useEffect(() => {
     const saved = getSavedGuideName();
     if (saved) setGuideName(saved);
@@ -254,6 +262,22 @@ export default function App() {
   useEffect(() => {
     loadEntries();
   }, [loadEntries]);
+
+  const loadMyAars = useCallback(async (name) => {
+    setAarsLoaded(false);
+    try {
+      const mine = await loadAARs(name);
+      setAars(mine);
+    } catch (err) {
+      console.error("Failed to load AARs:", err);
+      setAars([]);
+    }
+    setAarsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (nameLoaded) loadMyAars(guideName);
+  }, [nameLoaded, guideName, loadMyAars]);
 
   const saveName = async (name) => {
     setGuideName(name);
@@ -402,6 +426,99 @@ export default function App() {
     setDeleting(false);
   };
 
+  const locateAar = useCallback(() => {
+    setAarCapturing(true);
+    if (!navigator.geolocation) {
+      setAarCapturing(false);
+      return;
+    }
+    const fill = async (lat, lon) => {
+      const [gauge, weather] = await Promise.all([fetchNearestGauge(lat, lon), fetchAirTemp(lat, lon)]);
+      setAarDraft((d) =>
+        d
+          ? {
+              ...d,
+              lat,
+              lon,
+              flowCfs: gauge?.flowCfs ?? null,
+              waterTempF: gauge?.waterTempC != null ? cToF(gauge.waterTempC) : null,
+              gaugeName: gauge?.name ?? null,
+              gaugeDistance: gauge?.distance ?? null,
+              river: (d.river || "").trim() || prettyRiver(gauge?.name) || "",
+              airTempF: weather?.temperature_2m != null ? Math.round(weather.temperature_2m) : null,
+              windMph: weather?.wind_speed_10m != null ? Math.round(weather.wind_speed_10m) : null,
+              cloudCover: weather?.cloud_cover ?? null,
+            }
+          : d
+      );
+      setAarCapturing(false);
+    };
+    navigator.geolocation.getCurrentPosition(
+      (pos) => fill(pos.coords.latitude, pos.coords.longitude),
+      () => setAarCapturing(false),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }, []);
+
+  const startAar = () => {
+    setAarDraft({
+      type: "aar",
+      conditions: "",
+      diagnosis: "",
+      decision: "",
+      result: "",
+      miss: "",
+      river: "",
+      section: "",
+      timestamp: Date.now(),
+      lat: null,
+      lon: null,
+      flowCfs: null,
+      waterTempF: null,
+      airTempF: null,
+      windMph: null,
+      cloudCover: null,
+      gaugeName: null,
+      gaugeDistance: null,
+    });
+    setAarModalOpen(true);
+    locateAar();
+  };
+
+  const saveAarEntry = async () => {
+    if (!aarDraft) return;
+    if (!(aarDraft.miss || "").trim()) {
+      showToast("Miss is required — that's the point");
+      return;
+    }
+    const entry = { ...aarDraft, guide: guideName || "Unnamed guide" };
+    try {
+      await saveAARToDb(entry);
+      showToast("AAR logged");
+      setAarModalOpen(false);
+      setAarDraft(null);
+      loadMyAars(guideName);
+    } catch (err) {
+      console.error("AAR save failed:", err);
+      showToast("Couldn't save AAR — try again");
+    }
+  };
+
+  const confirmAarDelete = async () => {
+    if (!pendingAarDelete) return;
+    setAarDeleting(true);
+    try {
+      await deleteAAR(pendingAarDelete.id);
+      setAars((a) => a.filter((e) => e.id !== pendingAarDelete.id));
+      showToast("AAR deleted");
+      setPendingAarDelete(null);
+    } catch (err) {
+      console.error("AAR delete failed:", err);
+      showToast("Couldn't delete — try again");
+    }
+    setAarDeleting(false);
+  };
+
   return (
     <div
       className="min-h-screen w-full"
@@ -472,6 +589,15 @@ export default function App() {
         )}
         {view === "map" && <MapView entries={entries} loaded={entriesLoaded} />}
         {view === "patterns" && <PatternsView entries={entries} />}
+        {view === "aar" && (
+          <AARView
+            aars={aars}
+            loaded={aarsLoaded}
+            guideName={guideName}
+            onStart={startAar}
+            onRequestDelete={setPendingAarDelete}
+          />
+        )}
       </div>
 
       {/* Bottom nav */}
@@ -492,6 +618,12 @@ export default function App() {
           onClick={() => setView("patterns")}
           icon={<TrendingUp size={20} />}
           label="Patterns"
+        />
+        <NavButton
+          active={view === "aar"}
+          onClick={() => setView("aar")}
+          icon={<ClipboardList size={20} />}
+          label="AAR"
         />
       </div>
 
@@ -529,6 +661,30 @@ export default function App() {
           onConfirm={confirmDelete}
         />
       )}
+
+      {/* AAR modal */}
+      {aarModalOpen && aarDraft && (
+        <AARModal
+          draft={aarDraft}
+          setDraft={setAarDraft}
+          capturing={aarCapturing}
+          onSave={saveAarEntry}
+          onClose={() => {
+            setAarModalOpen(false);
+            setAarDraft(null);
+          }}
+        />
+      )}
+
+      {/* AAR delete confirm */}
+      {pendingAarDelete && (
+        <AARDeleteConfirm
+          entry={pendingAarDelete}
+          busy={aarDeleting}
+          onCancel={() => setPendingAarDelete(null)}
+          onConfirm={confirmAarDelete}
+        />
+      )}
     </div>
   );
 }
@@ -537,10 +693,10 @@ function NavButton({ active, onClick, icon, label }) {
   return (
     <StampButton
       onClick={onClick}
-      className="flex-1 flex flex-col items-center justify-center py-3 gap-1"
+      className="flex-1 flex flex-col items-center justify-center py-3 gap-1 min-w-0"
     >
       <div style={{ color: active ? RUST : "#9C9678" }}>{icon}</div>
-      <div className="mono text-[10px] tracking-widest uppercase" style={{ color: active ? RUST : "#9C9678" }}>
+      <div className="mono text-[9px] tracking-wide uppercase truncate max-w-full" style={{ color: active ? RUST : "#9C9678" }}>
         {label}
       </div>
     </StampButton>
@@ -1299,6 +1455,319 @@ function ReadLine({ label, value }) {
       <span className="text-right font-semibold" style={{ color: value ? INK : "#9C9678" }}>
         {value || "not enough data"}
       </span>
+    </div>
+  );
+}
+
+/* ---------- AAR (private after-action review) ---------- */
+
+// Pulls the words that recur across a guide's Misses — a rough pattern-of-life on themselves.
+const STOPWORDS = new Set(
+  "the a an and or but to of in on at for with was were is are be been it its i we my our me us that this had has have did do you your they them he she his her fish fishing water river run day today too very just really more most some any not no".split(
+    /\s+/
+  )
+);
+
+function recurringMissTerms(aars) {
+  const counts = {};
+  aars.forEach((e) => {
+    const words = (e.miss || "")
+      .toLowerCase()
+      .replace(/[^a-z\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length >= 4 && !STOPWORDS.has(w));
+    new Set(words).forEach((w) => {
+      counts[w] = (counts[w] || 0) + 1;
+    });
+  });
+  return Object.entries(counts)
+    .filter(([, n]) => n >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([term, count]) => ({ term, count }));
+}
+
+function AARView({ aars, loaded, guideName, onStart, onRequestDelete }) {
+  const terms = useMemo(() => recurringMissTerms(aars), [aars]);
+  const hasName = (guideName || "").trim().length > 0;
+
+  return (
+    <div>
+      <div className="stencil text-lg mb-1" style={{ color: OLIVE }}>
+        AFTER-ACTION REVIEW
+      </div>
+      <div className="mono text-[10px] mb-4" style={{ color: "#6B6449" }}>
+        PRIVATE TO YOU. NO OTHER GUIDE SEES THESE.
+      </div>
+
+      {!hasName && (
+        <div className="rounded border p-3 mb-4 mono text-xs" style={{ borderColor: RUST, color: RUST, backgroundColor: "#FBF7EC" }}>
+          Set your name up top first. Your AARs are filed under it — without a name they can't stay yours.
+        </div>
+      )}
+
+      <StampButton onClick={hasName ? onStart : () => {}} className="w-full mb-6">
+        <div
+          className="w-full py-3 rounded stencil text-xl flex items-center justify-center gap-2"
+          style={{ backgroundColor: hasName ? RUST : "#9C9678", color: PAPER }}
+        >
+          <Plus size={18} /> NEW AAR
+        </div>
+      </StampButton>
+
+      {/* Recurring misses read-back */}
+      {aars.length >= 2 && (
+        <div className="rounded border p-4 mb-6" style={{ borderColor: RUST, backgroundColor: "#FBF7EC" }}>
+          <div className="stencil text-lg mb-1 flex items-center gap-2" style={{ color: RUST }}>
+            <Target size={16} /> YOUR RECURRING MISSES
+          </div>
+          <div className="mono text-[10px] mb-3" style={{ color: "#6B6449" }}>
+            WORDS THAT KEEP SHOWING UP ACROSS {aars.length} REVIEWS
+          </div>
+          {terms.length === 0 ? (
+            <div className="mono text-xs italic" style={{ color: "#6B6449" }}>
+              No repeats yet. Keep filing — patterns surface once the same miss shows up twice.
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {terms.map((t) => (
+                <span
+                  key={t.term}
+                  className="mono text-[11px] px-2.5 py-1 rounded-full"
+                  style={{ backgroundColor: RUST, color: PAPER }}
+                >
+                  {t.term} · {t.count}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="mono text-[10px] mt-3 pt-3 border-t" style={{ color: "#6B6449", borderColor: "#D9CFB5" }}>
+            This is pattern-of-life run on yourself. The word that keeps repeating is the read you keep blowing.
+          </div>
+        </div>
+      )}
+
+      <div className="stencil text-lg mb-2" style={{ color: OLIVE }}>
+        YOUR REVIEWS ({aars.length})
+      </div>
+      {!loaded && <div className="mono text-xs" style={{ color: "#6B6449" }}>Loading…</div>}
+      {loaded && aars.length === 0 && (
+        <div className="mono text-xs italic" style={{ color: "#6B6449" }}>
+          No reviews yet. File one at the takeout — Conditions, Diagnosis, Decision, Result, and the Miss.
+        </div>
+      )}
+      <div className="space-y-2">
+        {aars.map((e) => (
+          <AARCard key={e.id} entry={e} onRequestDelete={onRequestDelete} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AARCard({ entry, onRequestDelete }) {
+  const date = new Date(entry.timestamp);
+  const timerRef = useRef(null);
+  const [held, setHeld] = useState(false);
+
+  const startHold = () => {
+    setHeld(true);
+    timerRef.current = setTimeout(() => {
+      setHeld(false);
+      onRequestDelete(entry);
+    }, 600);
+  };
+  const cancelHold = () => {
+    setHeld(false);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+  useEffect(() => () => timerRef.current && clearTimeout(timerRef.current), []);
+
+  return (
+    <div
+      onTouchStart={startHold}
+      onTouchEnd={cancelHold}
+      onTouchMove={cancelHold}
+      onTouchCancel={cancelHold}
+      onMouseDown={startHold}
+      onMouseUp={cancelHold}
+      onMouseLeave={cancelHold}
+      onContextMenu={(e) => e.preventDefault()}
+      className="border rounded p-3"
+      style={{
+        borderColor: held ? RUST : "#D9CFB5",
+        backgroundColor: held ? "#F4E6DE" : "#FBF7EC",
+        transform: held ? "scale(0.98)" : "scale(1)",
+        transition: "transform 150ms",
+        WebkitUserSelect: "none",
+        userSelect: "none",
+        WebkitTouchCallout: "none",
+      }}
+    >
+      <div className="flex items-center justify-between">
+        <div className="mono text-[11px] font-semibold" style={{ color: RUST }}>
+          {riverOf(entry)} · {sectionOf(entry)}
+        </div>
+        <div className="mono text-[10px]" style={{ color: "#6B6449" }}>
+          {date.toLocaleDateString()}
+        </div>
+      </div>
+      <AARLine label="Conditions" value={entry.conditions} />
+      <AARLine label="Diagnosis" value={entry.diagnosis} />
+      <AARLine label="Decision" value={entry.decision} />
+      <AARLine label="Result" value={entry.result} />
+      <AARLine label="Miss" value={entry.miss} highlight />
+      <div className="mono text-[9px] mt-2 flex items-center gap-1" style={{ color: "#9C9678" }}>
+        <Trash2 size={9} /> Press and hold to delete
+      </div>
+    </div>
+  );
+}
+
+function AARLine({ label, value, highlight }) {
+  if (!value) return null;
+  return (
+    <div className="mt-1.5">
+      <span className="mono text-[9px] tracking-widest uppercase" style={{ color: highlight ? RUST : "#6B6449" }}>
+        {label}
+      </span>
+      <div className="mono text-xs" style={{ color: highlight ? RUST : INK }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function AARModal({ draft, setDraft, capturing, onSave, onClose }) {
+  const set = (k) => (e) => setDraft((d) => ({ ...d, [k]: e.target.value }));
+  const missReady = (draft.miss || "").trim().length > 0;
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-start justify-center px-4 pb-4"
+      style={{ backgroundColor: "#00000066", paddingTop: "max(6rem, env(safe-area-inset-top, 0px) + 5rem)" }}
+    >
+      <div
+        className="w-full sm:max-w-md rounded-2xl overflow-hidden flex flex-col"
+        style={{ backgroundColor: PAPER, maxHeight: "calc(100vh - max(8rem, env(safe-area-inset-top, 0px) + 7rem))" }}
+      >
+        <div className="paper-texture px-5 pt-5 pb-4 flex items-center justify-between shrink-0" style={{ backgroundColor: OLIVE_DK }}>
+          <div>
+            <div className="stencil text-2xl leading-none" style={{ color: PAPER }}>
+              AFTER-ACTION REVIEW
+            </div>
+            <div className="mono text-[10px] tracking-wide mt-0.5" style={{ color: "#9C9678" }}>
+              PRIVATE · MEND THE DRIFT
+            </div>
+          </div>
+          <StampButton onClick={onClose}>
+            <X size={22} color={PAPER} />
+          </StampButton>
+        </div>
+
+        <div
+          className="px-5 pt-5 pb-5 overflow-y-auto"
+          style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehavior: "contain" }}
+        >
+          <div className="rounded p-3 mb-4 border" style={{ borderColor: "#D9CFB5", backgroundColor: "#FBF7EC" }}>
+            <div className="mono text-[10px] tracking-widest uppercase mb-2 flex items-center gap-1" style={{ color: "#6B6449" }}>
+              <MapPin size={11} /> Conditions captured
+            </div>
+            {capturing ? (
+              <div className="flex items-center gap-2 mono text-xs" style={{ color: OLIVE }}>
+                <Loader2 size={14} className="animate-spin" /> Reading GPS, flow, and temp…
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 mono text-xs" style={{ color: INK }}>
+                <div>Flow: {draft.flowCfs != null ? `${draft.flowCfs} cfs` : "—"}</div>
+                <div>Water: {draft.waterTempF != null ? `${draft.waterTempF}°F` : "—"}</div>
+                <div>Air: {draft.airTempF != null ? `${draft.airTempF}°F` : "—"}</div>
+                <div>Wind: {draft.windMph != null ? `${draft.windMph} mph` : "—"}</div>
+              </div>
+            )}
+          </div>
+
+          <Field label="River" value={draft.river} onChange={set("river")} placeholder="e.g. Snake River" />
+          <Field label="Section or run" value={draft.section} onChange={set("section")} placeholder="e.g. Conant to Byington" />
+
+          <FieldArea label="Conditions — what the day was" value={draft.conditions} onChange={set("conditions")} placeholder="Hot, bluebird, flows dropping, hatch sputtered by noon" />
+          <FieldArea label="Diagnosis — what you read" value={draft.diagnosis} onChange={set("diagnosis")} placeholder="Oxygen squeeze pushing fish to the fastest water they'd hold in" />
+          <FieldArea label="Decision — what you did about it" value={draft.decision} onChange={set("decision")} placeholder="Moved off the deep bucket, fished the broken riffle feeding it" />
+          <FieldArea label="Result — what happened" value={draft.result} onChange={set("result")} placeholder="Two in the first hour, then it went quiet" />
+
+          <div className="mt-1">
+            <div className="mono text-[10px] tracking-widest uppercase flex items-center gap-1" style={{ color: RUST }}>
+              <Target size={11} /> Miss — what you'd do differently *
+            </div>
+            <textarea
+              value={draft.miss}
+              onChange={set("miss")}
+              placeholder="Waited too long to move. The water told me at 10, I didn't act until noon."
+              rows={2}
+              className="w-full bg-transparent text-sm font-medium outline-none border-b pt-1 pb-1 resize-none"
+              style={{ color: INK, borderColor: RUST }}
+            />
+            <div className="mono text-[9px] mt-1" style={{ color: "#9C9678" }}>
+              Required. The Miss is the whole point — an AAR with no miss is a highlight reel.
+            </div>
+          </div>
+
+          <StampButton onClick={missReady ? onSave : () => {}} className="w-full mt-4">
+            <div
+              className="w-full py-3 rounded stencil text-xl flex items-center justify-center gap-2"
+              style={{ backgroundColor: missReady ? RUST : "#9C9678", color: PAPER }}
+            >
+              <Check size={18} /> FILE REVIEW
+            </div>
+          </StampButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AARDeleteConfirm({ entry, busy, onCancel, onConfirm }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-6" style={{ backgroundColor: "#00000088" }}>
+      <div className="w-full sm:max-w-sm rounded-2xl overflow-hidden" style={{ backgroundColor: PAPER }}>
+        <div className="paper-texture px-5 py-4" style={{ backgroundColor: OLIVE_DK }}>
+          <div className="stencil text-2xl leading-none" style={{ color: PAPER }}>
+            DELETE REVIEW
+          </div>
+        </div>
+        <div className="px-5 py-4">
+          <div className="mono text-xs" style={{ color: INK }}>
+            {riverOf(entry)} · {sectionOf(entry)}
+          </div>
+          {entry.miss && (
+            <div className="mono text-[11px] mt-2 italic" style={{ color: "#6B6449" }}>
+              "{entry.miss.length > 90 ? entry.miss.slice(0, 90) + "…" : entry.miss}"
+            </div>
+          )}
+          <div className="mono text-[11px] mt-3" style={{ color: RUST }}>
+            This can't be recovered.
+          </div>
+          <div className="flex gap-2 mt-5">
+            <StampButton onClick={onCancel} className="flex-1">
+              <div className="w-full py-3 rounded stencil text-lg border" style={{ borderColor: OLIVE, color: OLIVE }}>
+                KEEP
+              </div>
+            </StampButton>
+            <StampButton onClick={busy ? () => {} : onConfirm} className="flex-1">
+              <div
+                className="w-full py-3 rounded stencil text-lg flex items-center justify-center gap-2"
+                style={{ backgroundColor: RUST, color: PAPER, opacity: busy ? 0.6 : 1 }}
+              >
+                {busy ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                {busy ? "DELETING" : "DELETE"}
+              </div>
+            </StampButton>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
