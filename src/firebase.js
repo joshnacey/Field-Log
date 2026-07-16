@@ -37,6 +37,25 @@ export async function deleteCatch(id) {
   await deleteDoc(doc(db, "catches", id));
 }
 
+export async function saveAAR(entry) {
+  const docRef = await addDoc(collection(db, "aars"), entry);
+  return docRef.id;
+}
+
+export async function loadAARs(guide) {
+  const g = (guide || "").trim();
+  if (!g) return [];
+  const q = query(collection(db, "aars"), orderBy("timestamp", "desc"));
+  const snapshot = await getDocs(q);
+  return snapshot.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((e) => (e.guide || "").trim().toLowerCase() === g.toLowerCase());
+}
+
+export async function deleteAAR(id) {
+  await deleteDoc(doc(db, "aars", id));
+}
+
 export function getSavedGuideName() {
   return localStorage.getItem("mtd-guide-name") || "";
 }
