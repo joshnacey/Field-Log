@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter, Cell } from "recharts";
-import { Fish, MapPin, Loader2, BookOpen, TrendingUp, Plus, X, Check, AlertTriangle, Map as MapIcon, Trash2, ClipboardList, Target } from "lucide-react";
-import { saveCatch as saveCatchToDb, loadCatches, deleteCatch, saveAAR as saveAARToDb, loadAARs, deleteAAR, getSavedGuideName, saveGuideName } from "./firebase.js";
+import { Fish, MapPin, Loader2, BookOpen, TrendingUp, Plus, X, Check, AlertTriangle, Map as MapIcon, Trash2, ClipboardList, Target, LogOut } from "lucide-react";
+import { saveCatch as saveCatchToDb, loadCatches, deleteCatch, saveAAR as saveAARToDb, loadAARs, deleteAAR, watchAuth, signIn, signUp, signOut, authErrorMessage } from "./firebase.js";
 
 const FONT_IMPORT = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap";
 
@@ -221,9 +221,9 @@ function StampButton({ onClick, children, className = "" }) {
 }
 
 export default function App() {
+  const [authUser, setAuthUser] = useState(undefined); // undefined = still checking
   const [view, setView] = useState("log");
-  const [guideName, setGuideName] = useState("");
-  const [nameLoaded, setNameLoaded] = useState(false);
+  const guideName = (authUser?.displayName || authUser?.email || "").trim();
   const [entries, setEntries] = useState([]);
   const [entriesLoaded, setEntriesLoaded] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -243,9 +243,8 @@ export default function App() {
   const [aarDeleting, setAarDeleting] = useState(false);
 
   useEffect(() => {
-    const saved = getSavedGuideName();
-    if (saved) setGuideName(saved);
-    setNameLoaded(true);
+    const unsub = watchAuth((u) => setAuthUser(u || null));
+    return unsub;
   }, []);
 
   const loadEntries = useCallback(async () => {
@@ -263,10 +262,10 @@ export default function App() {
     loadEntries();
   }, [loadEntries]);
 
-  const loadMyAars = useCallback(async (name) => {
+  const loadMyAars = useCallback(async (uid, name) => {
     setAarsLoaded(false);
     try {
-      const mine = await loadAARs(name);
+      const mine = await loadAARs(uid, name);
       setAars(mine);
     } catch (err) {
       console.error("Failed to load AARs:", err);
@@ -276,13 +275,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (nameLoaded) loadMyAars(guideName);
-  }, [nameLoaded, guideName, loadMyAars]);
-
-  const saveName = async (name) => {
-    setGuideName(name);
-    saveGuideName(name);
-  };
+    if (authUser) loadMyAars(authUser.uid, guideName);
+    else {
+      setAars([]);
+      setAarsLoaded(false);
+    }
+  }, [authUser, guideName, loadMyAars]);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -387,7 +385,7 @@ export default function App() {
 
   const saveCatch = async () => {
     if (!draft) return;
-    const entry = { ...draft, guide: guideName || "Unnamed guide" };
+    const entry = { ...draft, guide: guideName || "Unnamed guide", uid: authUser?.uid || null };
     try {
       await saveCatchToDb(entry);
       showToast("Catch logged");
@@ -491,13 +489,13 @@ export default function App() {
       showToast("Miss is required — that's the point");
       return;
     }
-    const entry = { ...aarDraft, guide: guideName || "Unnamed guide" };
+    const entry = { ...aarDraft, guide: guideName || "Unnamed guide", uid: authUser?.uid || null };
     try {
       await saveAARToDb(entry);
       showToast("AAR logged");
       setAarModalOpen(false);
       setAarDraft(null);
-      loadMyAars(guideName);
+      loadMyAars(authUser?.uid, guideName);
     } catch (err) {
       console.error("AAR save failed:", err);
       showToast("Couldn't save AAR — try again");
@@ -518,6 +516,24 @@ export default function App() {
     }
     setAarDeleting(false);
   };
+
+  if (authUser === undefined) {
+    return (
+      <div
+        className="min-h-screen w-full flex items-center justify-center"
+        style={{ backgroundColor: PAPER, color: INK }}
+      >
+        <style>{`@import url('${FONT_IMPORT}'); .mono { font-family: 'JetBrains Mono', monospace; }`}</style>
+        <div className="flex items-center gap-2 mono text-sm" style={{ color: OLIVE }}>
+          <Loader2 size={16} className="animate-spin" /> Loading…
+        </div>
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return <AuthScreen />;
+  }
 
   return (
     <div
@@ -553,20 +569,21 @@ export default function App() {
       </div>
 
       {/* Guide name bar */}
-      {nameLoaded && (
-        <div className="px-5 py-3 border-b" style={{ borderColor: "#D9CFB5", backgroundColor: "#E8DFC8" }}>
-          <label className="mono text-[10px] tracking-widest uppercase" style={{ color: "#6B6449" }}>
+      <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: "#D9CFB5", backgroundColor: "#E8DFC8" }}>
+        <div className="min-w-0">
+          <div className="mono text-[10px] tracking-widest uppercase" style={{ color: "#6B6449" }}>
             Logging as
-          </label>
-          <input
-            value={guideName}
-            onChange={(e) => saveName(e.target.value)}
-            placeholder="Your name"
-            className="w-full bg-transparent mono text-sm font-semibold outline-none border-b border-dashed pt-1"
-            style={{ color: INK, borderColor: "#B5482A55" }}
-          />
+          </div>
+          <div className="mono text-sm font-semibold truncate" style={{ color: INK }}>
+            {guideName}
+          </div>
         </div>
-      )}
+        <StampButton onClick={() => signOut()} className="shrink-0 ml-3">
+          <div className="mono text-[10px] tracking-widest uppercase flex items-center gap-1 px-2.5 py-1.5 rounded border" style={{ borderColor: "#B5482A55", color: RUST }}>
+            <LogOut size={12} /> Sign out
+          </div>
+        </StampButton>
+      </div>
 
       {/* Main content by view */}
       <div className="px-5 pb-28 pt-5">
@@ -685,6 +702,126 @@ export default function App() {
           onConfirm={confirmAarDelete}
         />
       )}
+    </div>
+  );
+}
+
+function AuthScreen() {
+  const [mode, setMode] = useState("in"); // "in" or "up"
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const submit = async () => {
+    setError(null);
+    if (!email.trim() || !password) {
+      setError("Email and password are both required.");
+      return;
+    }
+    if (mode === "up" && !name.trim()) {
+      setError("Add your name — it's how your catches get filed.");
+      return;
+    }
+    setBusy(true);
+    try {
+      if (mode === "up") await signUp(email, password, name, code);
+      else await signIn(email, password);
+      // watchAuth in App will pick it up and swap the screen.
+    } catch (err) {
+      setError(authErrorMessage(err));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen w-full flex flex-col" style={{ backgroundColor: PAPER, color: INK, fontFamily: "Inter, sans-serif" }}>
+      <style>{`@import url('${FONT_IMPORT}');
+        .stencil { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.06em; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .paper-texture { background-image: radial-gradient(${INK}0d 1px, transparent 1px); background-size: 14px 14px; }
+      `}</style>
+
+      <div className="paper-texture px-6 pt-16 pb-10 text-center" style={{ backgroundColor: OLIVE_DK }}>
+        <img src={LOGO_DATA_URI} alt="Mend the Drift" className="w-24 h-24 rounded-full mx-auto mb-4" style={{ border: `3px solid ${RUST}`, backgroundColor: "#000" }} />
+        <div className="stencil text-4xl leading-none" style={{ color: PAPER }}>
+          FIELD LOG
+        </div>
+        <div className="mono text-[11px] tracking-wide mt-2" style={{ color: "#9C9678" }}>
+          MEND THE DRIFT · SHARED GUIDE JOURNAL
+        </div>
+      </div>
+
+      <div className="px-6 pt-8 pb-10 flex-1">
+        <div className="stencil text-2xl mb-1" style={{ color: OLIVE }}>
+          {mode === "in" ? "SIGN IN" : "CREATE ACCOUNT"}
+        </div>
+        <div className="mono text-[11px] mb-6" style={{ color: "#6B6449" }}>
+          {mode === "in"
+            ? "Your reviews are private to your account."
+            : "One account per guide. Your AARs stay yours."}
+        </div>
+
+        {mode === "up" && (
+          <AuthField label="Name" value={name} onChange={setName} placeholder="Joshua Nacey" />
+        )}
+        <AuthField label="Email" value={email} onChange={setEmail} placeholder="you@example.com" type="email" />
+        <AuthField label="Password" value={password} onChange={setPassword} placeholder="At least 6 characters" type="password" />
+        {mode === "up" && (
+          <AuthField label="Signup code" value={code} onChange={setCode} placeholder="From whoever gave you the app" />
+        )}
+
+        {error && (
+          <div className="mono text-xs mt-1 mb-2 flex items-start gap-1.5" style={{ color: RUST }}>
+            <AlertTriangle size={13} className="mt-0.5 shrink-0" /> {error}
+          </div>
+        )}
+
+        <StampButton onClick={busy ? () => {} : submit} className="w-full mt-4">
+          <div
+            className="w-full py-3 rounded stencil text-xl flex items-center justify-center gap-2"
+            style={{ backgroundColor: RUST, color: PAPER, opacity: busy ? 0.6 : 1 }}
+          >
+            {busy ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+            {mode === "in" ? "SIGN IN" : "CREATE ACCOUNT"}
+          </div>
+        </StampButton>
+
+        <div className="text-center mt-6">
+          <StampButton
+            onClick={() => {
+              setMode(mode === "in" ? "up" : "in");
+              setError(null);
+            }}
+          >
+            <div className="mono text-xs" style={{ color: OLIVE }}>
+              {mode === "in" ? "No account yet? Create one" : "Already have an account? Sign in"}
+            </div>
+          </StampButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AuthField({ label, value, onChange, placeholder, type = "text" }) {
+  return (
+    <div className="mb-4">
+      <label className="mono text-[10px] tracking-widest uppercase" style={{ color: "#6B6449" }}>
+        {label}
+      </label>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        type={type}
+        autoCapitalize={type === "email" || type === "password" ? "none" : "words"}
+        autoCorrect="off"
+        className="w-full bg-transparent text-sm font-medium outline-none border-b pt-1.5 pb-1.5"
+        style={{ color: INK, borderColor: "#D9CFB5" }}
+      />
     </div>
   );
 }
