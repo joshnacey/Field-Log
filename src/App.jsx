@@ -233,6 +233,8 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [savingCatch, setSavingCatch] = useState(false);
+  const [savingAar, setSavingAar] = useState(false);
 
   const [aars, setAars] = useState([]);
   const [aarsLoaded, setAarsLoaded] = useState(false);
@@ -384,8 +386,18 @@ export default function App() {
   };
 
   const saveCatch = async () => {
-    if (!draft) return;
-    const entry = { ...draft, guide: guideName || "Unnamed guide", uid: authUser?.uid || null };
+    if (!draft || savingCatch) return;
+    if (!(draft.fly || "").trim() && !(draft.species || "").trim()) {
+      showToast("Add a fly or species first");
+      return;
+    }
+    setSavingCatch(true);
+    const entry = {
+      ...draft,
+      timestamp: Date.now(),
+      guide: guideName || "Unnamed guide",
+      uid: authUser?.uid || null,
+    };
     try {
       await saveCatchToDb(entry);
       showToast("Catch logged");
@@ -396,6 +408,7 @@ export default function App() {
       console.error("Save failed:", err);
       showToast("Couldn't save — check your Firebase setup");
     }
+    setSavingCatch(false);
   };
 
   const closeModal = () => {
@@ -484,12 +497,18 @@ export default function App() {
   };
 
   const saveAarEntry = async () => {
-    if (!aarDraft) return;
+    if (!aarDraft || savingAar) return;
     if (!(aarDraft.miss || "").trim()) {
       showToast("Miss is required — that's the point");
       return;
     }
-    const entry = { ...aarDraft, guide: guideName || "Unnamed guide", uid: authUser?.uid || null };
+    setSavingAar(true);
+    const entry = {
+      ...aarDraft,
+      timestamp: Date.now(),
+      guide: guideName || "Unnamed guide",
+      uid: authUser?.uid || null,
+    };
     try {
       await saveAARToDb(entry);
       showToast("AAR logged");
@@ -499,7 +518,10 @@ export default function App() {
     } catch (err) {
       console.error("AAR save failed:", err);
       showToast("Couldn't save AAR — try again");
+      setSavingAar(false);
+      return;
     }
+    setSavingAar(false);
   };
 
   const confirmAarDelete = async () => {
