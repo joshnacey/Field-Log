@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter, Cell } from "recharts";
-import { Fish, MapPin, Loader2, BookOpen, TrendingUp, Plus, X, Check, AlertTriangle, Map as MapIcon, Trash2, ClipboardList, Target, LogOut } from "lucide-react";
+import { Fish, MapPin, Loader2, BookOpen, TrendingUp, Plus, X, Check, AlertTriangle, Map as MapIcon, Trash2, ClipboardList, Target, LogOut, WifiOff, CloudUpload } from "lucide-react";
 import { saveCatch as saveCatchToDb, loadCatches, deleteCatch, saveAAR as saveAARToDb, loadAARs, deleteAAR, watchAuth, signIn, signUp, signOut, authErrorMessage } from "./firebase.js";
 
 const FONT_IMPORT = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap";
@@ -209,6 +209,135 @@ function cToF(c) {
   return Math.round((c * 9) / 5 + 32);
 }
 
+/* ---------- historical conditions (for backfilling offline catches) ---------- */
+
+// Asks USGS what the flow and water temp actually were at this place and time.
+async function fetchHistoricalGauge(lat, lon, timestamp) {
+  const when = new Date(timestamp);
+  const start = new Date(when.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 19);
+  const end = new Date(when.getTime() + 3 * 60 * 60 * 1000).toISOString().slice(0, 19);
+  const boxes = [0.3, 0.6, 1.2, 2.5];
+
+  for (const d of boxes) {
+    const bbox = `${(lon - d).toFixed(2)},${(lat - d).toFixed(2)},${(lon + d).toFixed(2)},${(lat + d).toFixed(2)}`;
+    const url =
+      `https://waterservices.usgs.gov/nwis/iv/?format=json&bBox=${bbox}` +
+      `&parameterCd=00060,00010&startDT=${start}Z&endDT=${end}Z`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      const series = data?.value?.timeSeries || [];
+      if (series.length === 0) continue;
+
+      const bySite = {};
+      for (const s of series) {
+        const siteCode = s.sourceInfo.siteCode[0].value;
+        const geo = s.sourceInfo.geoLocation.geogLocation;
+        const paramCode = s.variable.variableCode[0].value;
+        const points = s.values?.[0]?.value || [];
+        if (points.length === 0) continue;
+
+        // Pick the reading closest in time to when the fish was actually caught.
+        let best = null;
+        let bestGap = Infinity;
+        for (const p of points) {
+          const gap = Math.abs(new Date(p.dateTime).getTime() - timestamp);
+          if (gap < bestGap) {
+            bestGap = gap;
+            best = p.value;
+          }
+        }
+        if (best === null || best === undefined) continue;
+
+        if (!bySite[siteCode]) {
+          bySite[siteCode] = { name: s.sourceInfo.siteName, lat: geo.latitude, lon: geo.longitude };
+        }
+        if (paramCode === "00060") bySite[siteCode].flowCfs = parseFloat(best);
+        if (paramCode === "00010") bySite[siteCode].waterTempC = parseFloat(best);
+      }
+
+      const sites = Object.values(bySite).map((s) => ({
+        ...s,
+        distance: haversine(lat, lon, s.lat, s.lon),
+      }));
+      if (sites.length === 0) continue;
+      sites.sort((a, b) => a.distance - b.distance);
+      return sites[0];
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+// Open-Meteo keeps a rolling week of past hours, which covers any realistic sync delay.
+async function fetchHistoricalWeather(lat, lon, timestamp) {
+  try {
+    const url =
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+      `&hourly=temperature_2m,cloud_cover,wind_speed_10m&past_days=7` +
+      `&temperature_unit=fahrenheit&wind_speed_unit=mph`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const times = data?.hourly?.time || [];
+    if (times.length === 0) return null;
+
+    let bestIdx = -1;
+    let bestGap = Infinity;
+    for (let i = 0; i < times.length; i++) {
+      const gap = Math.abs(new Date(times[i]).getTime() - timestamp);
+      if (gap < bestGap) {
+        bestGap = gap;
+        bestIdx = i;
+      }
+    }
+    if (bestIdx < 0) return null;
+
+    return {
+      temperature_2m: data.hourly.temperature_2m?.[bestIdx] ?? null,
+      cloud_cover: data.hourly.cloud_cover?.[bestIdx] ?? null,
+      wind_speed_10m: data.hourly.wind_speed_10m?.[bestIdx] ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/* ---------- offline queue ---------- */
+
+const QUEUE_CATCHES = "mtd-pending-catches";
+const QUEUE_AARS = "mtd-pending-aars";
+
+function readQueue(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeQueue(key, items) {
+  try {
+    localStorage.setItem(key, JSON.stringify(items));
+  } catch {
+    /* storage full or unavailable — nothing useful to do here */
+  }
+}
+
+function queueEntry(key, entry) {
+  const items = readQueue(key);
+  items.push({ ...entry, queuedAt: Date.now() });
+  writeQueue(key, items);
+  return items.length;
+}
+
+function totalPending() {
+  return readQueue(QUEUE_CATCHES).length + readQueue(QUEUE_AARS).length;
+}
+
 function StampButton({ onClick, children, className = "" }) {
   return (
     <button
@@ -235,6 +364,9 @@ export default function App() {
   const [deleting, setDeleting] = useState(false);
   const [savingCatch, setSavingCatch] = useState(false);
   const [savingAar, setSavingAar] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [syncing, setSyncing] = useState(false);
+  const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
 
   const [aars, setAars] = useState([]);
   const [aarsLoaded, setAarsLoaded] = useState(false);
@@ -247,6 +379,19 @@ export default function App() {
   useEffect(() => {
     const unsub = watchAuth((u) => setAuthUser(u || null));
     return unsub;
+  }, []);
+
+  // Cache the app on the phone so it opens with no signal.
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch((err) => {
+        console.warn("Offline mode unavailable:", err);
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    setPendingCount(totalPending());
   }, []);
 
   const loadEntries = useCallback(async () => {
@@ -398,6 +543,22 @@ export default function App() {
       guide: guideName || "Unnamed guide",
       uid: authUser?.uid || null,
     };
+
+    const stash = () => {
+      queueEntry(QUEUE_CATCHES, entry);
+      const n = totalPending();
+      setPendingCount(n);
+      showToast(`Saved to phone — ${n} waiting to upload`);
+      setModalOpen(false);
+      setDraft(null);
+    };
+
+    if (!navigator.onLine) {
+      stash();
+      setSavingCatch(false);
+      return;
+    }
+
     try {
       await saveCatchToDb(entry);
       showToast("Catch logged");
@@ -405,11 +566,101 @@ export default function App() {
       setDraft(null);
       loadEntries();
     } catch (err) {
-      console.error("Save failed:", err);
-      showToast("Couldn't save — check your Firebase setup");
+      console.error("Save failed, queuing locally:", err);
+      stash();
     }
     setSavingCatch(false);
   };
+
+  // Uploads anything logged out of service, filling in what the conditions
+  // actually were at the time and place it was recorded.
+  const syncQueue = useCallback(async () => {
+    if (syncing || !navigator.onLine) return;
+    const catches = readQueue(QUEUE_CATCHES);
+    const aars = readQueue(QUEUE_AARS);
+    if (catches.length === 0 && aars.length === 0) {
+      setPendingCount(0);
+      return;
+    }
+
+    setSyncing(true);
+
+    const backfill = async (item) => {
+      const entry = { ...item };
+      delete entry.queuedAt;
+      const needsConditions = entry.lat != null && entry.lon != null && entry.flowCfs == null;
+      if (!needsConditions) return entry;
+
+      const [gauge, weather] = await Promise.all([
+        fetchHistoricalGauge(entry.lat, entry.lon, entry.timestamp),
+        fetchHistoricalWeather(entry.lat, entry.lon, entry.timestamp),
+      ]);
+      if (gauge) {
+        entry.flowCfs = gauge.flowCfs ?? null;
+        entry.waterTempF = gauge.waterTempC != null ? cToF(gauge.waterTempC) : null;
+        entry.gaugeName = entry.gaugeName || gauge.name || null;
+        entry.gaugeDistance = entry.gaugeDistance ?? gauge.distance ?? null;
+        if (!(entry.river || "").trim()) entry.river = prettyRiver(gauge.name) || "";
+      }
+      if (weather) {
+        entry.airTempF = weather.temperature_2m != null ? Math.round(weather.temperature_2m) : null;
+        entry.windMph = weather.wind_speed_10m != null ? Math.round(weather.wind_speed_10m) : null;
+        entry.cloudCover = weather.cloud_cover ?? null;
+      }
+      return entry;
+    };
+
+    const drain = async (items, save) => {
+      const stillPending = [];
+      for (const item of items) {
+        try {
+          const entry = await backfill(item);
+          await save(entry);
+        } catch (err) {
+          console.error("Sync failed for one entry, keeping it queued:", err);
+          stillPending.push(item);
+        }
+      }
+      return stillPending;
+    };
+
+    const catchesLeft = await drain(catches, saveCatchToDb);
+    const aarsLeft = await drain(aars, saveAARToDb);
+
+    writeQueue(QUEUE_CATCHES, catchesLeft);
+    writeQueue(QUEUE_AARS, aarsLeft);
+    setPendingCount(catchesLeft.length + aarsLeft.length);
+    setSyncing(false);
+
+    const uploadedCatches = catches.length - catchesLeft.length;
+    const uploadedAars = aars.length - aarsLeft.length;
+    if (uploadedCatches > 0 || uploadedAars > 0) {
+      const parts = [];
+      if (uploadedCatches > 0) parts.push(`${uploadedCatches} catch${uploadedCatches === 1 ? "" : "es"}`);
+      if (uploadedAars > 0) parts.push(`${uploadedAars} review${uploadedAars === 1 ? "" : "s"}`);
+      showToast(`${parts.join(" and ")} uploaded`);
+      if (uploadedCatches > 0) loadEntries();
+      if (uploadedAars > 0) loadMyAars(authUser?.uid, guideName);
+    }
+  }, [syncing, loadEntries, loadMyAars, authUser, guideName]);
+
+  useEffect(() => {
+    const goOnline = () => {
+      setOnline(true);
+      syncQueue();
+    };
+    const goOffline = () => setOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, [syncQueue]);
+
+  useEffect(() => {
+    if (authUser && navigator.onLine) syncQueue();
+  }, [authUser, syncQueue]);
 
   const closeModal = () => {
     setModalOpen(false);
@@ -509,6 +760,22 @@ export default function App() {
       guide: guideName || "Unnamed guide",
       uid: authUser?.uid || null,
     };
+
+    const stash = () => {
+      queueEntry(QUEUE_AARS, entry);
+      const n = totalPending();
+      setPendingCount(n);
+      showToast(`Review saved to phone — ${n} waiting to upload`);
+      setAarModalOpen(false);
+      setAarDraft(null);
+    };
+
+    if (!navigator.onLine) {
+      stash();
+      setSavingAar(false);
+      return;
+    }
+
     try {
       await saveAARToDb(entry);
       showToast("AAR logged");
@@ -516,10 +783,8 @@ export default function App() {
       setAarDraft(null);
       loadMyAars(authUser?.uid, guideName);
     } catch (err) {
-      console.error("AAR save failed:", err);
-      showToast("Couldn't save AAR — try again");
-      setSavingAar(false);
-      return;
+      console.error("AAR save failed, queuing locally:", err);
+      stash();
     }
     setSavingAar(false);
   };
@@ -607,6 +872,35 @@ export default function App() {
         </StampButton>
       </div>
 
+      {(!online || pendingCount > 0) && (
+        <div
+          className="px-5 py-2 flex items-center gap-2 mono text-[11px]"
+          style={{ backgroundColor: !online ? "#3D4128" : "#B5482A", color: PAPER }}
+        >
+          {syncing ? (
+            <Loader2 size={13} className="animate-spin shrink-0" />
+          ) : !online ? (
+            <WifiOff size={13} className="shrink-0" />
+          ) : (
+            <CloudUpload size={13} className="shrink-0" />
+          )}
+          <span>
+            {syncing
+              ? "Uploading and filling in conditions…"
+              : !online
+              ? pendingCount > 0
+                ? `No service — ${pendingCount} entr${pendingCount === 1 ? "y" : "ies"} saved on your phone`
+                : "No service — entries will save to your phone"
+              : `${pendingCount} entr${pendingCount === 1 ? "y" : "ies"} waiting to upload`}
+          </span>
+          {online && pendingCount > 0 && !syncing && (
+            <StampButton onClick={syncQueue} className="ml-auto shrink-0">
+              <div className="mono text-[10px] tracking-widest uppercase underline">Upload now</div>
+            </StampButton>
+          )}
+        </div>
+      )}
+
       {/* Main content by view */}
       <div className="px-5 pb-28 pt-5">
         {view === "log" && (
@@ -682,6 +976,7 @@ export default function App() {
           draft={draft}
           setDraft={setDraft}
           entries={entries}
+          online={online}
           capturing={capturing}
           captureError={captureError}
           onSave={saveCatch}
@@ -706,6 +1001,7 @@ export default function App() {
         <AARModal
           draft={aarDraft}
           setDraft={setAarDraft}
+          online={online}
           capturing={aarCapturing}
           onSave={saveAarEntry}
           onClose={() => {
@@ -1800,7 +2096,7 @@ function AARLine({ label, value, highlight }) {
   );
 }
 
-function AARModal({ draft, setDraft, capturing, onSave, onClose }) {
+function AARModal({ draft, setDraft, online, capturing, onSave, onClose }) {
   const set = (k) => (e) => setDraft((d) => ({ ...d, [k]: e.target.value }));
   const missReady = (draft.miss || "").trim().length > 0;
 
@@ -1838,6 +2134,14 @@ function AARModal({ draft, setDraft, capturing, onSave, onClose }) {
             {capturing ? (
               <div className="flex items-center gap-2 mono text-xs" style={{ color: OLIVE }}>
                 <Loader2 size={14} className="animate-spin" /> Reading GPS, flow, and temp…
+              </div>
+            ) : !online ? (
+              <div className="flex items-start gap-2 mono text-xs" style={{ color: OLIVE }}>
+                <WifiOff size={14} className="mt-0.5 shrink-0" />
+                <div>
+                  No service. Write it now — the review saves to your phone and uploads itself when
+                  you're back in signal.
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2 mono text-xs" style={{ color: INK }}>
@@ -1933,7 +2237,7 @@ function AARDeleteConfirm({ entry, busy, onCancel, onConfirm }) {
 
 /* ---------- Catch modal (unchanged) ---------- */
 
-function CatchModal({ draft, setDraft, entries, capturing, captureError, onSave, onClose, onRetryLocation, onManualLocate }) {
+function CatchModal({ draft, setDraft, entries, online, capturing, captureError, onSave, onClose, onRetryLocation, onManualLocate }) {
   const set = (k) => (e) => setDraft((d) => ({ ...d, [k]: e.target.value }));
   const pick = (k, v) => setDraft((d) => ({ ...d, [k]: v }));
   const [manualLat, setManualLat] = useState("");
@@ -2014,6 +2318,22 @@ function CatchModal({ draft, setDraft, entries, capturing, captureError, onSave,
           {capturing ? (
             <div className="flex items-center gap-2 mono text-xs" style={{ color: OLIVE }}>
               <Loader2 size={14} className="animate-spin" /> Reading GPS, flow, and temperature…
+            </div>
+          ) : !online ? (
+            <div>
+              <div className="flex items-start gap-2 mono text-xs" style={{ color: OLIVE }}>
+                <WifiOff size={14} className="mt-0.5 shrink-0" />
+                <div>
+                  No service. Your GPS still works — the spot is being recorded. Flow and temperature
+                  will fill in automatically once you're back in signal, using the readings from the
+                  time you caught it.
+                </div>
+              </div>
+              {draft.lat != null && (
+                <div className="mono text-[10px] mt-2" style={{ color: "#9C9678" }}>
+                  Pinned: {draft.lat.toFixed(4)}, {draft.lon.toFixed(4)}
+                </div>
+              )}
             </div>
           ) : captureError ? (
             <div>
