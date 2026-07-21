@@ -51,6 +51,25 @@ function prettyRiver(gaugeName) {
     .trim();
 }
 
+// USGS gauges are named after the official waterway, which doesn't always match
+// what guides actually call a stretch (e.g. the "South Fork Snake River" is
+// gauged simply as "Snake River"). These bounding boxes let known water get its
+// real, commonly-used name before falling back to the raw gauge name.
+const RIVER_NAME_OVERRIDES = [
+  // Palisades Dam down to the Henry's Fork confluence near Menan/Rexburg.
+  { name: "South Fork Snake River", minLat: 43.28, maxLat: 43.85, minLon: -111.95, maxLon: -111.05 },
+  // Green River, WY: Warren Bridge down through the Flaming Gorge stretch.
+  { name: "Green River", minLat: 41.0, maxLat: 43.3, minLon: -110.35, maxLon: -109.4 },
+];
+
+function overrideRiverName(lat, lon) {
+  if (lat == null || lon == null) return null;
+  for (const z of RIVER_NAME_OVERRIDES) {
+    if (lat >= z.minLat && lat <= z.maxLat && lon >= z.minLon && lon <= z.maxLon) return z.name;
+  }
+  return null;
+}
+
 function riverOf(entry) {
   const r = (entry.river || "").trim();
   if (r) return r;
@@ -512,7 +531,12 @@ export default function App() {
       ...d,
       lat: latitude,
       lon: longitude,
-      river: (d.river || "").trim() || nearRiver?.name || prettyRiver(gauge?.name) || "",
+      river:
+        (d.river || "").trim() ||
+        nearRiver?.name ||
+        overrideRiverName(latitude, longitude) ||
+        prettyRiver(gauge?.name) ||
+        "",
       section: (d.section || "").trim() || nearSection?.name || "",
       flowCfs: gauge?.flowCfs ?? null,
       waterTempF: gauge?.waterTempC != null ? cToF(gauge.waterTempC) : null,
@@ -596,10 +620,10 @@ export default function App() {
 
   const saveCatch = async () => {
     if (!draft || savingCatch) return;
-    if (!(draft.fly || "").trim() && !(draft.species || "").trim()) {
-      showToast("Add a fly or species first");
-      return;
-    }
+    // Fly/species are intentionally optional here: on the water, the priority
+    // is capturing the spot and conditions the instant a fish is netted. The
+    // fly, size, and notes can be filled in later through Edit once there's
+    // time — see startEditCatch / "EDIT CATCH" flow.
     const isEdit = !!draft.id;
     setSavingCatch(true);
 
@@ -2484,19 +2508,36 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
   const [manualLon, setManualLon] = useState("");
   const [manualBusy, setManualBusy] = useState(false);
 
-  const knownRivers = useMemo(
-    () => Array.from(new Set((entries || []).map(riverOf).filter((r) => r !== "Unknown water"))).sort(),
-    [entries]
-  );
+  // Ranks rivers by how many catches have actually been logged there,
+  // most-fished first — same "most popular" method as the fly quick-pick below.
+  const topRivers = useMemo(() => {
+    const counts = {};
+    for (const e of entries || []) {
+      const r = riverOf(e);
+      if (!r || r === "Unknown water") continue;
+      counts[r] = (counts[r] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([name]) => name);
+  }, [entries]);
 
-  const knownSections = useMemo(() => {
+  // Same idea, scoped to sections logged on the currently-selected river (or
+  // across all rivers if none is picked yet).
+  const topSections = useMemo(() => {
     const river = (draft.river || "").trim().toLowerCase();
-    const pool = (entries || []).filter((e) => {
-      if (!(e.section || "").trim()) return false;
-      if (!river) return true;
-      return riverOf(e).toLowerCase() === river;
-    });
-    return Array.from(new Set(pool.map((e) => e.section.trim()))).sort();
+    const counts = {};
+    for (const e of entries || []) {
+      const s = (e.section || "").trim();
+      if (!s) continue;
+      if (river && riverOf(e).toLowerCase() !== river) continue;
+      counts[s] = (counts[s] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([name]) => name);
   }, [entries, draft.river]);
 
   // Ranks flies by how often they've actually caught fish, most-used first,
@@ -2510,7 +2551,7 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
     }
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
+      .slice(0, 15)
       .map(([name]) => name);
   }, [entries]);
 
@@ -2659,8 +2700,8 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
         </div>
 
         <Field label="River" value={draft.river} onChange={set("river")} placeholder="e.g. Snake River" />
-        {knownRivers.length > 0 && (
-          <ChipRow items={knownRivers} onPick={(v) => pick("river", v)} />
+        {topRivers.length > 0 && (
+          <ChipRow items={topRivers} onPick={(v) => pick("river", v)} />
         )}
 
         <Field
@@ -2669,8 +2710,8 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
           onChange={set("section")}
           placeholder="e.g. Conant to Byington"
         />
-        {knownSections.length > 0 && (
-          <ChipRow items={knownSections} onPick={(v) => pick("section", v)} />
+        {topSections.length > 0 && (
+          <ChipRow items={topSections} onPick={(v) => pick("section", v)} />
         )}
 
         <Field label="Fly used" value={draft.fly} onChange={set("fly")} placeholder="e.g. Parachute Adams #16" />
@@ -2696,7 +2737,7 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
 function ChipRow({ items, onPick }) {
   return (
     <div className="chip-scroll flex gap-2 overflow-x-auto -mt-1.5 mb-3.5 pb-1">
-      {items.slice(0, 12).map((v) => (
+      {items.slice(0, 20).map((v) => (
         <StampButton key={v} onClick={() => onPick(v)}>
           <div
             className="chip mono text-[10px] px-3 py-1.5 rounded-full border whitespace-nowrap font-medium"
