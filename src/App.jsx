@@ -8,10 +8,13 @@ const FONT_IMPORT = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=
 const LOGO_DATA_URI = "/logo.png";
 
 const RUST = "#B5482A";
-const INK = "#2A2620";
-const PAPER = "#F1EADA";
-const OLIVE = "#3D4128";
+const RUST_LT = "#D9663F";
+const INK = "#ECE7D8"; // primary text (light on dark)
+const PAPER = "#F1EADA"; // bright text on dark panels
+const OLIVE = "#A8B07A"; // sage — headings/secondary
 const OLIVE_DK = "#2A2D1B";
+const BG = "#12140D"; // page background
+const PANEL = "#171A0F"; // modal / popover surface
 
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 3958.8;
@@ -359,7 +362,7 @@ function ProfilePopover({ guideName, email, onClose, onSignOut }) {
     <div className="fixed inset-0 z-50 flex items-start justify-end overlay-blur animate-fade" onClick={onClose}>
       <div
         className="mt-[4.5rem] mr-4 w-64 rounded-2xl overflow-hidden elev-2 animate-scale-in"
-        style={{ backgroundColor: PAPER, transformOrigin: "top right" }}
+        style={{ backgroundColor: PANEL, transformOrigin: "top right" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="grad-header paper-texture px-4 pt-4 pb-4 flex items-center gap-3">
@@ -381,7 +384,7 @@ function ProfilePopover({ guideName, email, onClose, onSignOut }) {
           </div>
         </div>
         <div className="p-3">
-          <div className="mono text-[9px] tracking-[0.2em] uppercase mb-2 px-1" style={{ color: "#8A8367" }}>
+          <div className="mono text-[9px] tracking-[0.2em] uppercase mb-2 px-1" style={{ color: "#93907A" }}>
             Signed in
           </div>
           <StampButton onClick={onSignOut} className="w-full">
@@ -858,7 +861,7 @@ export default function App() {
     return (
       <div
         className="min-h-screen w-full flex items-center justify-center"
-        style={{ backgroundColor: PAPER, color: INK }}
+        style={{ backgroundColor: BG, color: INK }}
       >
         <style>{`@import url('${FONT_IMPORT}'); .mono { font-family: 'JetBrains Mono', monospace; }`}</style>
         <div className="flex items-center gap-2 mono text-sm" style={{ color: OLIVE }}>
@@ -875,7 +878,7 @@ export default function App() {
   return (
     <div
       className="min-h-screen w-full"
-      style={{ backgroundColor: PAPER, color: INK, fontFamily: "Inter, sans-serif" }}
+      style={{ backgroundColor: BG, color: INK, fontFamily: "Inter, sans-serif" }}
     >
       <style>{`@import url('${FONT_IMPORT}');
         .stencil { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.06em; }
@@ -887,10 +890,10 @@ export default function App() {
       <div className="grad-header paper-texture px-5 pt-7 pb-6 sticky top-0 z-20 elev-header">
         <div className="flex items-center justify-between">
           <div>
-            <div className="stencil text-4xl leading-none" style={{ color: PAPER }}>
+            <div className="stencil text-5xl leading-none" style={{ color: PAPER }}>
               FIELD LOG
             </div>
-            <div className="mono text-[10px] tracking-[0.18em] mt-1.5" style={{ color: "#A8A283" }}>
+            <div className="mono text-[10px] tracking-[0.22em] mt-2" style={{ color: "#A8A283" }}>
               MEND THE DRIFT · SHARED GUIDE JOURNAL
             </div>
           </div>
@@ -906,9 +909,9 @@ export default function App() {
       </div>
 
       {/* Guide name bar */}
-      <div className="px-5 py-3.5 border-b flex items-center justify-between" style={{ borderColor: "#D9CFB5", backgroundColor: "#E8DFC8" }}>
+      <div className="px-5 py-3.5 border-b flex items-center justify-between" style={{ borderColor: "rgba(255,255,255,0.09)", backgroundColor: "#15180E" }}>
         <div className="min-w-0">
-          <div className="mono text-[9px] tracking-[0.2em] uppercase" style={{ color: "#8A8367" }}>
+          <div className="mono text-[9px] tracking-[0.2em] uppercase" style={{ color: "#93907A" }}>
             Logging as
           </div>
           <div className="mono text-sm font-semibold truncate mt-0.5" style={{ color: INK }}>
@@ -992,31 +995,33 @@ export default function App() {
         )}
       </div>
 
-      {/* Bottom nav */}
+      {/* Floating capsule bottom nav */}
       <div
-        className="grad-header fixed bottom-0 left-0 right-0 flex items-stretch elev-nav z-20"
-        style={{ borderTop: `2px solid ${RUST}`, paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        className="fixed left-0 right-0 z-30 flex justify-center px-4 pointer-events-none"
+        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)" }}
       >
-        <NavButton active={view === "log"} onClick={() => setView("log")} icon={<Plus size={20} />} label="Log" />
-        <NavButton
-          active={view === "history"}
-          onClick={() => setView("history")}
-          icon={<BookOpen size={20} />}
-          label="History"
-        />
-        <NavButton active={view === "map"} onClick={() => setView("map")} icon={<MapIcon size={20} />} label="Map" />
-        <NavButton
-          active={view === "patterns"}
-          onClick={() => setView("patterns")}
-          icon={<TrendingUp size={20} />}
-          label="Patterns"
-        />
-        <NavButton
-          active={view === "aar"}
-          onClick={() => setView("aar")}
-          icon={<ClipboardList size={20} />}
-          label="AAR"
-        />
+        <div className="glass-strong elev-nav rounded-full flex items-stretch gap-0.5 px-1.5 py-1.5 pointer-events-auto">
+          <NavButton active={view === "log"} onClick={() => setView("log")} icon={<Plus size={20} />} label="Log" />
+          <NavButton
+            active={view === "history"}
+            onClick={() => setView("history")}
+            icon={<BookOpen size={20} />}
+            label="History"
+          />
+          <NavButton active={view === "map"} onClick={() => setView("map")} icon={<MapIcon size={20} />} label="Map" />
+          <NavButton
+            active={view === "patterns"}
+            onClick={() => setView("patterns")}
+            icon={<TrendingUp size={20} />}
+            label="Patterns"
+          />
+          <NavButton
+            active={view === "aar"}
+            onClick={() => setView("aar")}
+            icon={<ClipboardList size={20} />}
+            label="AAR"
+          />
+        </div>
       </div>
 
       {/* Toast */}
@@ -1114,7 +1119,7 @@ function AuthScreen() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col" style={{ backgroundColor: PAPER, color: INK, fontFamily: "Inter, sans-serif" }}>
+    <div className="min-h-screen w-full flex flex-col" style={{ backgroundColor: BG, color: INK, fontFamily: "Inter, sans-serif" }}>
       <style>{`@import url('${FONT_IMPORT}');
         .stencil { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.06em; }
         .mono { font-family: 'JetBrains Mono', monospace; }
@@ -1135,7 +1140,7 @@ function AuthScreen() {
         <div className="stencil text-3xl mb-1" style={{ color: OLIVE }}>
           {mode === "in" ? "SIGN IN" : "CREATE ACCOUNT"}
         </div>
-        <div className="mono text-[11px] mb-7" style={{ color: "#6B6449" }}>
+        <div className="mono text-[11px] mb-7" style={{ color: "#9E9A82" }}>
           {mode === "in"
             ? "Your reviews are private to your account."
             : "One account per guide. Your AARs stay yours."}
@@ -1158,7 +1163,7 @@ function AuthScreen() {
 
         <StampButton onClick={busy ? () => {} : submit} className="w-full mt-6">
           <div
-            className="grad-rust press w-full py-3.5 rounded-2xl stencil text-xl flex items-center justify-center gap-2 elev-1"
+            className="grad-rust press w-full py-3.5 rounded-2xl stencil text-xl flex items-center justify-center gap-2 elev-1 glow-rust-soft"
             style={{ color: PAPER, opacity: busy ? 0.6 : 1 }}
           >
             {busy ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
@@ -1186,7 +1191,7 @@ function AuthScreen() {
 function AuthField({ label, value, onChange, placeholder, type = "text" }) {
   return (
     <div className="mb-4">
-      <label className="mono text-[10px] tracking-[0.16em] uppercase" style={{ color: "#8A8367" }}>
+      <label className="mono text-[10px] tracking-[0.16em] uppercase" style={{ color: "#93907A" }}>
         {label}
       </label>
       <input
@@ -1197,7 +1202,7 @@ function AuthField({ label, value, onChange, placeholder, type = "text" }) {
         autoCapitalize={type === "email" || type === "password" ? "none" : "words"}
         autoCorrect="off"
         className="field-input w-full text-sm font-medium outline-none border rounded-xl px-3.5 py-3 mt-1.5"
-        style={{ color: INK, borderColor: "#D9CFB5", backgroundColor: "#FBF7EC" }}
+        style={{ color: INK, borderColor: "rgba(255,255,255,0.09)", backgroundColor: "rgba(255,255,255,0.04)" }}
       />
     </div>
   );
@@ -1207,23 +1212,21 @@ function NavButton({ active, onClick, icon, label }) {
   return (
     <StampButton
       onClick={onClick}
-      className="flex-1 flex flex-col items-center justify-center pt-2.5 pb-3 gap-1 min-w-0 relative press"
+      className="flex flex-col items-center justify-center gap-1 min-w-0 press rounded-full px-3.5 py-2"
     >
-      {active && (
-        <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 h-[3px] w-8 rounded-full"
-          style={{ backgroundColor: RUST }}
-        />
-      )}
       <div
-        className="flex items-center justify-center rounded-xl px-3 py-1 transition-colors duration-200"
-        style={{ color: active ? RUST : "#9C9678", backgroundColor: active ? "#B5482A1a" : "transparent" }}
+        className="flex items-center justify-center rounded-full w-10 h-10 transition-all duration-200"
+        style={
+          active
+            ? { color: PAPER, background: "linear-gradient(140deg, #C1502F 0%, #9A3D22 100%)", boxShadow: "0 0 18px rgba(181,72,42,0.55)" }
+            : { color: "#8A8770", backgroundColor: "transparent" }
+        }
       >
         {icon}
       </div>
       <div
-        className="mono text-[9px] tracking-[0.12em] uppercase truncate max-w-full transition-colors duration-200"
-        style={{ color: active ? RUST : "#9C9678", fontWeight: active ? 700 : 400 }}
+        className="mono text-[8px] tracking-[0.14em] uppercase truncate max-w-full transition-colors duration-200"
+        style={{ color: active ? RUST_LT : "#6f6c58", fontWeight: active ? 700 : 500 }}
       >
         {label}
       </div>
@@ -1254,7 +1257,7 @@ function LogView({ onStartCatch, recent, loaded, guideName, onRequestDelete }) {
         <div className="stencil text-2xl mt-5 tracking-wide" style={{ color: RUST }}>
           LOG CATCH
         </div>
-        <div className="mono text-[11px] mt-1.5" style={{ color: "#6B6449" }}>
+        <div className="mono text-[11px] mt-1.5" style={{ color: "#9E9A82" }}>
           Captures GPS, flow, and temp automatically
         </div>
       </div>
@@ -1324,8 +1327,8 @@ function EntryCard({ entry, compact, canDelete, onRequestDelete }) {
       }}
       className="border rounded-2xl p-4 lift elev-1"
       style={{
-        borderColor: held ? RUST : "#E3D9C0",
-        backgroundColor: held ? "#F4E6DE" : "#FBF7EC",
+        borderColor: held ? RUST : "rgba(255,255,255,0.09)",
+        backgroundColor: held ? "rgba(181,72,42,0.16)" : "rgba(255,255,255,0.04)",
         transform: held ? "scale(0.98)" : "scale(1)",
         WebkitUserSelect: canDelete ? "none" : "auto",
         userSelect: canDelete ? "none" : "auto",
@@ -1336,7 +1339,7 @@ function EntryCard({ entry, compact, canDelete, onRequestDelete }) {
         <div className="stencil text-lg" style={{ color: OLIVE }}>
           {entry.species || "Trout"} {entry.size ? `· ${entry.size}"` : ""}
         </div>
-        <div className="mono text-[10px] shrink-0" style={{ color: "#8A8367" }}>
+        <div className="mono text-[10px] shrink-0" style={{ color: "#93907A" }}>
           {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </div>
       </div>
@@ -1344,8 +1347,8 @@ function EntryCard({ entry, compact, canDelete, onRequestDelete }) {
         {riverOf(entry)} · {sectionOf(entry)}
       </div>
       <div className="mono text-xs mt-1.5" style={{ color: INK }}>
-        <span style={{ color: "#8A8367" }}>Fly:</span> {entry.fly || "—"} &nbsp;·&nbsp;{" "}
-        <span style={{ color: "#8A8367" }}>Guide:</span> {entry.guide}
+        <span style={{ color: "#93907A" }}>Fly:</span> {entry.fly || "—"} &nbsp;·&nbsp;{" "}
+        <span style={{ color: "#93907A" }}>Guide:</span> {entry.guide}
       </div>
       <div className="flex flex-wrap gap-1.5 mt-2.5">
         {entry.flowCfs != null && <Tag label={`${entry.flowCfs} cfs`} />}
@@ -1356,17 +1359,17 @@ function EntryCard({ entry, compact, canDelete, onRequestDelete }) {
         )}
       </div>
       {!compact && entry.notes && (
-        <div className="mono text-xs mt-3 italic leading-relaxed" style={{ color: "#6B6449" }}>
+        <div className="mono text-xs mt-3 italic leading-relaxed" style={{ color: "#9E9A82" }}>
           "{entry.notes}"
         </div>
       )}
       {!compact && entry.gaugeName && (
-        <div className="mono text-[10px] mt-2.5" style={{ color: "#9C9678" }}>
+        <div className="mono text-[10px] mt-2.5" style={{ color: "#82806A" }}>
           Gauge: {entry.gaugeName} ({entry.gaugeDistance?.toFixed(1)} mi)
         </div>
       )}
       {canDelete && (
-        <div className="mono text-[9px] mt-2.5 flex items-center gap-1" style={{ color: "#9C9678" }}>
+        <div className="mono text-[9px] mt-2.5 flex items-center gap-1" style={{ color: "#82806A" }}>
           <Trash2 size={9} /> Press and hold to delete
         </div>
       )}
@@ -1380,7 +1383,7 @@ function Tag({ label, muted }) {
       className="mono text-[10px] px-2.5 py-1 rounded-full border font-medium"
       style={
         muted
-          ? { borderColor: "#D9CFB5", color: "#9C9678", backgroundColor: "#F1EADA" }
+          ? { borderColor: "rgba(255,255,255,0.1)", color: "#82806A", backgroundColor: "rgba(255,255,255,0.04)" }
           : { borderColor: "#B5482A55", color: RUST, backgroundColor: "#B5482A0f" }
       }
     >
@@ -1391,7 +1394,7 @@ function Tag({ label, muted }) {
 
 function LoadingRow() {
   return (
-    <div className="mono text-xs flex items-center gap-2 py-2" style={{ color: "#6B6449" }}>
+    <div className="mono text-xs flex items-center gap-2 py-2" style={{ color: "#9E9A82" }}>
       <Loader2 size={14} className="animate-spin" /> Loading…
     </div>
   );
@@ -1401,7 +1404,7 @@ function EmptyState({ icon, title, body }) {
   return (
     <div
       className="rounded-2xl border border-dashed px-6 py-10 text-center flex flex-col items-center gap-3 animate-fade"
-      style={{ borderColor: "#CDBF9E", backgroundColor: "#FBF7EC" }}
+      style={{ borderColor: "rgba(255,255,255,0.12)", backgroundColor: "rgba(255,255,255,0.04)" }}
     >
       <div
         className="w-14 h-14 rounded-2xl flex items-center justify-center"
@@ -1412,7 +1415,7 @@ function EmptyState({ icon, title, body }) {
       <div className="stencil text-xl" style={{ color: OLIVE }}>
         {title}
       </div>
-      <div className="mono text-[11px] leading-relaxed max-w-xs" style={{ color: "#6B6449" }}>
+      <div className="mono text-[11px] leading-relaxed max-w-xs" style={{ color: "#9E9A82" }}>
         {body}
       </div>
     </div>
@@ -1425,12 +1428,12 @@ function DeleteConfirm({ entry, busy, onCancel, onConfirm }) {
     <div
       className="overlay-blur animate-fade fixed inset-0 z-50 flex items-center justify-center px-6"
     >
-      <div className="w-full sm:max-w-sm rounded-3xl overflow-hidden elev-2 animate-scale-in" style={{ backgroundColor: PAPER }}>
+      <div className="w-full sm:max-w-sm rounded-3xl overflow-hidden elev-2 animate-scale-in" style={{ backgroundColor: PANEL }}>
         <div className="grad-header paper-texture px-5 py-4">
           <div className="stencil text-2xl leading-none" style={{ color: PAPER }}>
             DELETE ENTRY
           </div>
-          <div className="mono text-[10px] tracking-wide mt-1" style={{ color: "#9C9678" }}>
+          <div className="mono text-[10px] tracking-wide mt-1" style={{ color: "#82806A" }}>
             THIS REMOVES IT FOR EVERY GUIDE
           </div>
         </div>
@@ -1439,7 +1442,7 @@ function DeleteConfirm({ entry, busy, onCancel, onConfirm }) {
             {entry.species || "Trout"}
             {entry.size ? ` · ${entry.size}"` : ""} — {entry.fly || "no fly logged"}
           </div>
-          <div className="mono text-[10px] mt-1" style={{ color: "#6B6449" }}>
+          <div className="mono text-[10px] mt-1" style={{ color: "#9E9A82" }}>
             {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} ·{" "}
             {riverOf(entry)}
           </div>
@@ -1457,7 +1460,7 @@ function DeleteConfirm({ entry, busy, onCancel, onConfirm }) {
             </StampButton>
             <StampButton onClick={busy ? () => {} : onConfirm} className="flex-1">
               <div
-                className="grad-rust press w-full py-3 rounded-2xl stencil text-lg flex items-center justify-center gap-2 elev-1"
+                className="grad-rust press w-full py-3 rounded-2xl stencil text-lg flex items-center justify-center gap-2 elev-1 glow-rust-soft"
                 style={{ color: PAPER, opacity: busy ? 0.6 : 1 }}
               >
                 {busy ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
@@ -1491,12 +1494,12 @@ function HistoryView({ entries, loaded, guideName, onRequestDelete }) {
       <div className="stencil text-xl mb-1 mt-2" style={{ color: OLIVE }}>
         {f.label.toUpperCase()} ({f.filtered.length})
       </div>
-      <div className="mono text-[10px] tracking-wide mb-4" style={{ color: "#8A8367" }}>
+      <div className="mono text-[10px] tracking-wide mb-4" style={{ color: "#93907A" }}>
         PRESS AND HOLD YOUR OWN ENTRY TO DELETE IT
       </div>
 
       {f.filtered.length === 0 && (
-        <div className="mono text-xs italic" style={{ color: "#6B6449" }}>
+        <div className="mono text-xs italic" style={{ color: "#9E9A82" }}>
           Nothing logged on this water yet.
         </div>
       )}
@@ -1546,7 +1549,7 @@ function useWaterFilter(entries) {
 function FilterChips({ items, value, onPick, allLabel }) {
   if (items.length < 2) return null;
   return (
-    <div className="flex gap-2 overflow-x-auto pb-2.5 -mx-1 px-1">
+    <div className="chip-scroll flex gap-2 overflow-x-auto pb-2.5 -mx-1 px-1">
       {["ALL", ...items].map((r) => {
         const active = value === r;
         return (
@@ -1554,9 +1557,9 @@ function FilterChips({ items, value, onPick, allLabel }) {
             <div
               className={`chip mono text-[10px] tracking-wide px-3.5 py-1.5 rounded-full border whitespace-nowrap font-medium ${active ? "grad-rust" : ""}`}
               style={{
-                borderColor: active ? "transparent" : "#D9CFB5",
-                backgroundColor: active ? undefined : "#FBF7EC",
-                color: active ? PAPER : "#6B6449",
+                borderColor: active ? "transparent" : "rgba(255,255,255,0.09)",
+                backgroundColor: active ? undefined : "rgba(255,255,255,0.04)",
+                color: active ? PAPER : "#9E9A82",
                 boxShadow: active ? "0 3px 10px rgba(181,72,42,0.3)" : "none",
               }}
             >
@@ -1643,10 +1646,10 @@ function MapView({ entries, loaded }) {
         `<div style="font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.5">
           <div style="font-size:14px;color:${RUST};font-weight:700">${n} fish</div>
           <div>${riverOf(s.entries[0])}</div>
-          <div style="color:#6B6449">${sectionOf(s.entries[0])}</div>
+          <div style="color:#9E9A82">${sectionOf(s.entries[0])}</div>
           ${topFly ? `<div>Top fly: ${topFly.name} (${topFly.count})</div>` : ""}
           ${avgSize ? `<div>Avg size: ${avgSize}"</div>` : ""}
-          <div style="color:#6B6449">${s.lat.toFixed(4)}, ${s.lon.toFixed(4)}</div>
+          <div style="color:#9E9A82">${s.lat.toFixed(4)}, ${s.lon.toFixed(4)}</div>
         </div>`
       );
       marker.addTo(layerRef.current);
@@ -1662,7 +1665,7 @@ function MapView({ entries, loaded }) {
       <div className="stencil text-xl mb-1" style={{ color: OLIVE }}>
         CATCH MAP
       </div>
-      <div className="mono text-[10px] tracking-wide mb-4" style={{ color: "#8A8367" }}>
+      <div className="mono text-[10px] tracking-wide mb-4" style={{ color: "#93907A" }}>
         BIGGER CIRCLE = MORE FISH. TAP ONE FOR THE READ.
       </div>
 
@@ -1678,13 +1681,13 @@ function MapView({ entries, loaded }) {
 
       <div
         className="rounded-2xl overflow-hidden border relative elev-1"
-        style={{ borderColor: "#D9CFB5", height: "42vh", minHeight: 260, display: loaded && geo.length === 0 ? "none" : "block" }}
+        style={{ borderColor: "rgba(255,255,255,0.09)", height: "42vh", minHeight: 260, display: loaded && geo.length === 0 ? "none" : "block" }}
       >
         <div ref={containerRef} style={{ height: "100%", width: "100%" }} />
         {status === "loading" && (
           <div
             className="absolute inset-0 flex items-center justify-center mono text-xs gap-2"
-            style={{ backgroundColor: "#E8DFC8", color: OLIVE }}
+            style={{ backgroundColor: "#15180E", color: OLIVE }}
           >
             <Loader2 size={14} className="animate-spin" /> Loading map…
           </div>
@@ -1692,7 +1695,7 @@ function MapView({ entries, loaded }) {
         {status === "error" && (
           <div
             className="absolute inset-0 flex items-center justify-center mono text-xs px-6 text-center"
-            style={{ backgroundColor: "#E8DFC8", color: RUST }}
+            style={{ backgroundColor: "#15180E", color: RUST }}
           >
             Map couldn't load. Check your connection and reopen this tab.
           </div>
@@ -1711,13 +1714,13 @@ function MapView({ entries, loaded }) {
                 <div
                   key={i}
                   className="border rounded-2xl p-4 flex items-start justify-between gap-3 lift elev-1"
-                  style={{ borderColor: "#E3D9C0", backgroundColor: "#FBF7EC" }}
+                  style={{ borderColor: "rgba(255,255,255,0.09)", backgroundColor: "rgba(255,255,255,0.04)" }}
                 >
                   <div>
                     <div className="stencil text-lg" style={{ color: i === 0 ? RUST : OLIVE }}>
                       {s.entries.length} FISH
                     </div>
-                    <div className="mono text-[10px] mt-1" style={{ color: "#6B6449" }}>
+                    <div className="mono text-[10px] mt-1" style={{ color: "#9E9A82" }}>
                       {riverOf(s.entries[0])} · {sectionOf(s.entries[0])}
                     </div>
                     {topFly && (
@@ -1726,7 +1729,7 @@ function MapView({ entries, loaded }) {
                       </div>
                     )}
                   </div>
-                  <div className="mono text-[10px] text-right shrink-0" style={{ color: "#9C9678" }}>
+                  <div className="mono text-[10px] text-right shrink-0" style={{ color: "#82806A" }}>
                     {s.lat.toFixed(4)}
                     <br />
                     {s.lon.toFixed(4)}
@@ -1747,19 +1750,20 @@ const TOOLTIP_STYLE = {
   fontFamily: "JetBrains Mono",
   fontSize: 11,
   borderRadius: 12,
-  border: "1px solid #D9CFB5",
-  boxShadow: "0 8px 22px rgba(42,38,32,0.16)",
-  backgroundColor: "#FBF7EC",
+  border: "1px solid rgba(255,255,255,0.1)",
+  boxShadow: "0 12px 32px rgba(0,0,0,0.6)",
+  backgroundColor: "#1C1F14",
+  color: "#ECE7D8",
 };
-const TOOLTIP_CURSOR = { fill: "rgba(61,65,40,0.06)" };
+const TOOLTIP_CURSOR = { fill: "rgba(255,255,255,0.06)" };
 
 function ChartBlock({ title, subtitle, children }) {
   return (
-    <div className="rounded-2xl border p-4 elev-1" style={{ borderColor: "#E3D9C0", backgroundColor: "#FBF7EC" }}>
+    <div className="rounded-2xl border p-4 elev-1" style={{ borderColor: "rgba(255,255,255,0.09)", backgroundColor: "rgba(255,255,255,0.04)" }}>
       <div className="stencil text-xl mb-1" style={{ color: OLIVE }}>
         {title}
       </div>
-      <div className="mono text-[10px] tracking-wide mb-4" style={{ color: "#8A8367" }}>
+      <div className="mono text-[10px] tracking-wide mb-4" style={{ color: "#93907A" }}>
         {subtitle}
       </div>
       {children}
@@ -1772,18 +1776,18 @@ function CountBars({ data, height = 200, highlightMax = true }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ left: -20, right: 8, top: 4, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="2 4" stroke="#E0D5BB" vertical={false} />
+        <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,0.06)" vertical={false} />
         <XAxis
           dataKey="name"
-          tick={{ fontSize: 9, fontFamily: "JetBrains Mono", fill: "#6B6449" }}
-          stroke="#C9BFA2"
+          tick={{ fontSize: 9, fontFamily: "JetBrains Mono", fill: "#9E9A82" }}
+          stroke="rgba(255,255,255,0.16)"
           tickLine={false}
           interval={0}
           angle={data.length > 8 ? -40 : 0}
           textAnchor={data.length > 8 ? "end" : "middle"}
           height={data.length > 8 ? 46 : 24}
         />
-        <YAxis tick={{ fontSize: 9, fontFamily: "JetBrains Mono", fill: "#6B6449" }} stroke="#C9BFA2" tickLine={false} allowDecimals={false} />
+        <YAxis tick={{ fontSize: 9, fontFamily: "JetBrains Mono", fill: "#9E9A82" }} stroke="rgba(255,255,255,0.16)" tickLine={false} allowDecimals={false} />
         <Tooltip contentStyle={TOOLTIP_STYLE} cursor={TOOLTIP_CURSOR} />
         <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={54}>
           {data.map((d, i) => (
@@ -1877,11 +1881,11 @@ function PatternsView({ entries }) {
       <WaterFilter f={f} />
 
       {/* The Read */}
-      <div className="rounded-2xl border p-5 elev-1" style={{ borderColor: "#B5482A55", backgroundColor: "#FBF7EC" }}>
+      <div className="rounded-2xl border p-5 elev-1" style={{ borderColor: "#B5482A55", backgroundColor: "rgba(255,255,255,0.04)" }}>
         <div className="stencil text-2xl mb-1" style={{ color: RUST }}>
           THE READ
         </div>
-        <div className="mono text-[10px] tracking-wide mb-4" style={{ color: "#8A8367" }}>
+        <div className="mono text-[10px] tracking-wide mb-4" style={{ color: "#93907A" }}>
           {data.length} CATCH{data.length === 1 ? "" : "ES"} · {f.label.toUpperCase()}
         </div>
         <div className="space-y-1.5 mono text-xs" style={{ color: INK }}>
@@ -1917,7 +1921,7 @@ function PatternsView({ entries }) {
             }
           />
         </div>
-        <div className="mono text-[10px] mt-3 pt-3 border-t" style={{ color: "#6B6449", borderColor: "#D9CFB5" }}>
+        <div className="mono text-[10px] mt-3 pt-3 border-t" style={{ color: "#9E9A82", borderColor: "rgba(255,255,255,0.09)" }}>
           These count where fish were logged, not fish per hour fished. Read them as leads to check, not conclusions.
         </div>
       </div>
@@ -1926,19 +1930,19 @@ function PatternsView({ entries }) {
         <ChartBlock title="CATCHES BY SECTION" subtitle="WHERE THE FISH ARE COMING FROM">
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={sectionData} layout="vertical" margin={{ left: 10, right: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#D9CFB5" horizontal={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.09)" horizontal={false} />
               <XAxis
                 type="number"
-                tick={{ fontSize: 10, fontFamily: "JetBrains Mono" }}
-                stroke="#6B6449"
+                tick={{ fontSize: 10, fontFamily: "JetBrains Mono", fill: "#9E9A82" }}
+                stroke="#9E9A82"
                 allowDecimals={false}
               />
               <YAxis
                 type="category"
                 dataKey="name"
                 width={100}
-                tick={{ fontSize: 9, fontFamily: "JetBrains Mono" }}
-                stroke="#6B6449"
+                tick={{ fontSize: 9, fontFamily: "JetBrains Mono", fill: "#9E9A82" }}
+                stroke="#9E9A82"
               />
               <Tooltip contentStyle={TOOLTIP_STYLE} cursor={TOOLTIP_CURSOR} />
               <Bar dataKey="count" radius={[0, 6, 6, 0]}>
@@ -1981,14 +1985,14 @@ function PatternsView({ entries }) {
       >
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={flyData} layout="vertical" margin={{ left: 10, right: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#D9CFB5" horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 10, fontFamily: "JetBrains Mono" }} stroke="#6B6449" allowDecimals={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.09)" horizontal={false} />
+            <XAxis type="number" tick={{ fontSize: 10, fontFamily: "JetBrains Mono", fill: "#9E9A82" }} stroke="#9E9A82" allowDecimals={false} />
             <YAxis
               type="category"
               dataKey="name"
               width={90}
-              tick={{ fontSize: 10, fontFamily: "JetBrains Mono" }}
-              stroke="#6B6449"
+              tick={{ fontSize: 10, fontFamily: "JetBrains Mono", fill: "#9E9A82" }}
+              stroke="#9E9A82"
             />
             <Tooltip contentStyle={TOOLTIP_STYLE} cursor={TOOLTIP_CURSOR} />
             <Bar dataKey="count" radius={[0, 6, 6, 0]}>
@@ -2004,14 +2008,14 @@ function PatternsView({ entries }) {
         <ChartBlock title="FLOW VS. WATER TEMP" subtitle="EACH DOT IS ONE LOGGED CATCH">
           <ResponsiveContainer width="100%" height={220}>
             <ScatterChart margin={{ left: 0, right: 10, top: 10, bottom: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#D9CFB5" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.09)" />
               <XAxis
                 type="number"
                 dataKey="x"
                 name="Flow"
                 unit=" cfs"
-                tick={{ fontSize: 10, fontFamily: "JetBrains Mono" }}
-                stroke="#6B6449"
+                tick={{ fontSize: 10, fontFamily: "JetBrains Mono", fill: "#9E9A82" }}
+                stroke="#9E9A82"
               />
               <YAxis
                 type="number"
@@ -2019,10 +2023,10 @@ function PatternsView({ entries }) {
                 name="Water Temp"
                 unit="°F"
                 domain={["dataMin - 2", "dataMax + 2"]}
-                tick={{ fontSize: 10, fontFamily: "JetBrains Mono" }}
-                stroke="#6B6449"
+                tick={{ fontSize: 10, fontFamily: "JetBrains Mono", fill: "#9E9A82" }}
+                stroke="#9E9A82"
               />
-              <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ strokeDasharray: "3 3", stroke: "#C9BFA2" }} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ strokeDasharray: "3 3", stroke: "rgba(255,255,255,0.16)" }} />
               <Scatter data={flowScatter} fill={RUST} />
             </ScatterChart>
           </ResponsiveContainer>
@@ -2035,8 +2039,8 @@ function PatternsView({ entries }) {
 function ReadLine({ label, value }) {
   return (
     <div className="flex justify-between gap-3">
-      <span style={{ color: "#6B6449" }}>{label}</span>
-      <span className="text-right font-semibold" style={{ color: value ? INK : "#9C9678" }}>
+      <span style={{ color: "#9E9A82" }}>{label}</span>
+      <span className="text-right font-semibold" style={{ color: value ? INK : "#82806A" }}>
         {value || "not enough data"}
       </span>
     </div>
@@ -2080,7 +2084,7 @@ function AARView({ aars, loaded, guideName, onStart, onRequestDelete }) {
       <div className="stencil text-xl mb-1" style={{ color: OLIVE }}>
         AFTER-ACTION REVIEW
       </div>
-      <div className="mono text-[10px] tracking-wide mb-4" style={{ color: "#8A8367" }}>
+      <div className="mono text-[10px] tracking-wide mb-4" style={{ color: "#93907A" }}>
         PRIVATE TO YOU. NO OTHER GUIDE SEES THESE.
       </div>
 
@@ -2092,8 +2096,8 @@ function AARView({ aars, loaded, guideName, onStart, onRequestDelete }) {
 
       <StampButton onClick={hasName ? onStart : () => {}} className="w-full mb-6">
         <div
-          className={`press w-full py-3.5 rounded-2xl stencil text-xl flex items-center justify-center gap-2 ${hasName ? "grad-rust elev-1" : ""}`}
-          style={{ backgroundColor: hasName ? undefined : "#9C9678", color: PAPER, opacity: hasName ? 1 : 0.85 }}
+          className={`press w-full py-3.5 rounded-2xl stencil text-xl flex items-center justify-center gap-2 ${hasName ? "grad-rust elev-1 glow-rust-soft" : ""}`}
+          style={{ backgroundColor: hasName ? undefined : "#82806A", color: PAPER, opacity: hasName ? 1 : 0.85 }}
         >
           <Plus size={18} /> NEW AAR
         </div>
@@ -2101,15 +2105,15 @@ function AARView({ aars, loaded, guideName, onStart, onRequestDelete }) {
 
       {/* Recurring misses read-back */}
       {aars.length >= 2 && (
-        <div className="rounded-2xl border p-5 mb-6 elev-1" style={{ borderColor: "#B5482A55", backgroundColor: "#FBF7EC" }}>
+        <div className="rounded-2xl border p-5 mb-6 elev-1" style={{ borderColor: "#B5482A55", backgroundColor: "rgba(255,255,255,0.04)" }}>
           <div className="stencil text-xl mb-1 flex items-center gap-2" style={{ color: RUST }}>
             <Target size={16} /> YOUR RECURRING MISSES
           </div>
-          <div className="mono text-[10px] tracking-wide mb-3.5" style={{ color: "#8A8367" }}>
+          <div className="mono text-[10px] tracking-wide mb-3.5" style={{ color: "#93907A" }}>
             WORDS THAT KEEP SHOWING UP ACROSS {aars.length} REVIEWS
           </div>
           {terms.length === 0 ? (
-            <div className="mono text-xs italic" style={{ color: "#6B6449" }}>
+            <div className="mono text-xs italic" style={{ color: "#9E9A82" }}>
               No repeats yet. Keep filing — patterns surface once the same miss shows up twice.
             </div>
           ) : (
@@ -2125,7 +2129,7 @@ function AARView({ aars, loaded, guideName, onStart, onRequestDelete }) {
               ))}
             </div>
           )}
-          <div className="mono text-[10px] mt-3 pt-3 border-t" style={{ color: "#6B6449", borderColor: "#D9CFB5" }}>
+          <div className="mono text-[10px] mt-3 pt-3 border-t" style={{ color: "#9E9A82", borderColor: "rgba(255,255,255,0.09)" }}>
             This is pattern-of-life run on yourself. The word that keeps repeating is the read you keep blowing.
           </div>
         </div>
@@ -2184,8 +2188,8 @@ function AARCard({ entry, onRequestDelete }) {
       onContextMenu={(e) => e.preventDefault()}
       className="border rounded-2xl p-4 lift elev-1"
       style={{
-        borderColor: held ? RUST : "#E3D9C0",
-        backgroundColor: held ? "#F4E6DE" : "#FBF7EC",
+        borderColor: held ? RUST : "rgba(255,255,255,0.09)",
+        backgroundColor: held ? "rgba(181,72,42,0.16)" : "rgba(255,255,255,0.04)",
         transform: held ? "scale(0.98)" : "scale(1)",
         WebkitUserSelect: "none",
         userSelect: "none",
@@ -2196,7 +2200,7 @@ function AARCard({ entry, onRequestDelete }) {
         <div className="mono text-[11px] font-bold tracking-wide" style={{ color: RUST }}>
           {riverOf(entry)} · {sectionOf(entry)}
         </div>
-        <div className="mono text-[10px]" style={{ color: "#6B6449" }}>
+        <div className="mono text-[10px]" style={{ color: "#9E9A82" }}>
           {date.toLocaleDateString()}
         </div>
       </div>
@@ -2205,7 +2209,7 @@ function AARCard({ entry, onRequestDelete }) {
       <AARLine label="Decision" value={entry.decision} />
       <AARLine label="Result" value={entry.result} />
       <AARLine label="Miss" value={entry.miss} highlight />
-      <div className="mono text-[9px] mt-2 flex items-center gap-1" style={{ color: "#9C9678" }}>
+      <div className="mono text-[9px] mt-2 flex items-center gap-1" style={{ color: "#82806A" }}>
         <Trash2 size={9} /> Press and hold to delete
       </div>
     </div>
@@ -2216,7 +2220,7 @@ function AARLine({ label, value, highlight }) {
   if (!value) return null;
   return (
     <div className="mt-1.5">
-      <span className="mono text-[9px] tracking-widest uppercase" style={{ color: highlight ? RUST : "#6B6449" }}>
+      <span className="mono text-[9px] tracking-widest uppercase" style={{ color: highlight ? RUST : "#9E9A82" }}>
         {label}
       </span>
       <div className="mono text-xs" style={{ color: highlight ? RUST : INK }}>
@@ -2237,14 +2241,14 @@ function AARModal({ draft, setDraft, online, capturing, onSave, onClose }) {
     >
       <div
         className="w-full sm:max-w-md rounded-3xl overflow-hidden flex flex-col elev-2 animate-slide-up"
-        style={{ backgroundColor: PAPER, maxHeight: "calc(100vh - max(8rem, env(safe-area-inset-top, 0px) + 7rem))" }}
+        style={{ backgroundColor: PANEL, maxHeight: "calc(100vh - max(8rem, env(safe-area-inset-top, 0px) + 7rem))" }}
       >
         <div className="grad-header paper-texture px-5 pt-5 pb-4 flex items-center justify-between shrink-0">
           <div>
             <div className="stencil text-2xl leading-none" style={{ color: PAPER }}>
               AFTER-ACTION REVIEW
             </div>
-            <div className="mono text-[10px] tracking-wide mt-0.5" style={{ color: "#9C9678" }}>
+            <div className="mono text-[10px] tracking-wide mt-0.5" style={{ color: "#82806A" }}>
               PRIVATE · MEND THE DRIFT
             </div>
           </div>
@@ -2259,8 +2263,8 @@ function AARModal({ draft, setDraft, online, capturing, onSave, onClose }) {
           className="px-5 pt-5 pb-5 overflow-y-auto"
           style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehavior: "contain" }}
         >
-          <div className="rounded-2xl p-4 mb-4 border elev-1" style={{ borderColor: "#E3D9C0", backgroundColor: "#FBF7EC" }}>
-            <div className="mono text-[10px] tracking-[0.16em] uppercase mb-2.5 flex items-center gap-1.5" style={{ color: "#8A8367" }}>
+          <div className="rounded-2xl p-4 mb-4 border elev-1" style={{ borderColor: "rgba(255,255,255,0.09)", backgroundColor: "rgba(255,255,255,0.04)" }}>
+            <div className="mono text-[10px] tracking-[0.16em] uppercase mb-2.5 flex items-center gap-1.5" style={{ color: "#93907A" }}>
               <MapPin size={11} /> Conditions captured
             </div>
             {capturing ? (
@@ -2303,17 +2307,17 @@ function AARModal({ draft, setDraft, online, capturing, onSave, onClose }) {
               placeholder="Waited too long to move. The water told me at 10, I didn't act until noon."
               rows={2}
               className="field-input w-full text-sm font-medium outline-none border rounded-xl px-3 py-2 mt-2 resize-none"
-              style={{ color: INK, borderColor: "#B5482A66", backgroundColor: "#FBF7EC" }}
+              style={{ color: INK, borderColor: "#B5482A66", backgroundColor: "rgba(255,255,255,0.04)" }}
             />
-            <div className="mono text-[9px] mt-1.5" style={{ color: "#9C9678" }}>
+            <div className="mono text-[9px] mt-1.5" style={{ color: "#82806A" }}>
               Required. The Miss is the whole point — an AAR with no miss is a highlight reel.
             </div>
           </div>
 
           <StampButton onClick={missReady ? onSave : () => {}} className="w-full mt-5">
             <div
-              className={`press w-full py-3.5 rounded-2xl stencil text-xl flex items-center justify-center gap-2 ${missReady ? "grad-rust elev-1" : ""}`}
-              style={{ backgroundColor: missReady ? undefined : "#9C9678", color: PAPER, opacity: missReady ? 1 : 0.85 }}
+              className={`press w-full py-3.5 rounded-2xl stencil text-xl flex items-center justify-center gap-2 ${missReady ? "grad-rust elev-1 glow-rust-soft" : ""}`}
+              style={{ backgroundColor: missReady ? undefined : "#82806A", color: PAPER, opacity: missReady ? 1 : 0.85 }}
             >
               <Check size={18} /> FILE REVIEW
             </div>
@@ -2327,7 +2331,7 @@ function AARModal({ draft, setDraft, online, capturing, onSave, onClose }) {
 function AARDeleteConfirm({ entry, busy, onCancel, onConfirm }) {
   return (
     <div className="overlay-blur animate-fade fixed inset-0 z-50 flex items-center justify-center px-6">
-      <div className="w-full sm:max-w-sm rounded-3xl overflow-hidden elev-2 animate-scale-in" style={{ backgroundColor: PAPER }}>
+      <div className="w-full sm:max-w-sm rounded-3xl overflow-hidden elev-2 animate-scale-in" style={{ backgroundColor: PANEL }}>
         <div className="grad-header paper-texture px-5 py-4">
           <div className="stencil text-2xl leading-none" style={{ color: PAPER }}>
             DELETE REVIEW
@@ -2338,23 +2342,26 @@ function AARDeleteConfirm({ entry, busy, onCancel, onConfirm }) {
             {riverOf(entry)} · {sectionOf(entry)}
           </div>
           {entry.miss && (
-            <div className="mono text-[11px] mt-2 italic" style={{ color: "#6B6449" }}>
+            <div className="mono text-[11px] mt-2 italic" style={{ color: "#9E9A82" }}>
               "{entry.miss.length > 90 ? entry.miss.slice(0, 90) + "…" : entry.miss}"
             </div>
           )}
           <div className="mono text-[11px] mt-3" style={{ color: RUST }}>
             This can't be recovered.
           </div>
-          <div className="flex gap-2 mt-5">
+          <div className="flex gap-2.5 mt-6">
             <StampButton onClick={onCancel} className="flex-1">
-              <div className="w-full py-3 rounded stencil text-lg border" style={{ borderColor: OLIVE, color: OLIVE }}>
+              <div
+                className="press w-full py-3 rounded-2xl stencil text-lg border"
+                style={{ borderColor: OLIVE, color: OLIVE, backgroundColor: "rgba(168,176,122,0.08)" }}
+              >
                 KEEP
               </div>
             </StampButton>
             <StampButton onClick={busy ? () => {} : onConfirm} className="flex-1">
               <div
-                className="w-full py-3 rounded stencil text-lg flex items-center justify-center gap-2"
-                style={{ backgroundColor: RUST, color: PAPER, opacity: busy ? 0.6 : 1 }}
+                className="grad-rust press w-full py-3 rounded-2xl stencil text-lg flex items-center justify-center gap-2 elev-1 glow-rust-soft"
+                style={{ color: PAPER, opacity: busy ? 0.6 : 1 }}
               >
                 {busy ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                 {busy ? "DELETING" : "DELETE"}
@@ -2407,7 +2414,7 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
     >
       <div
         className="w-full sm:max-w-md rounded-3xl overflow-hidden flex flex-col elev-2 animate-slide-up"
-        style={{ backgroundColor: PAPER, maxHeight: "calc(100vh - max(8rem, env(safe-area-inset-top, 0px) + 7rem))" }}
+        style={{ backgroundColor: PANEL, maxHeight: "calc(100vh - max(8rem, env(safe-area-inset-top, 0px) + 7rem))" }}
       >
         <div className="grad-header paper-texture px-5 pt-5 pb-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -2421,7 +2428,7 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
               <div className="stencil text-2xl leading-none" style={{ color: PAPER }}>
                 LOG CATCH
               </div>
-              <div className="mono text-[10px] tracking-wide mt-0.5" style={{ color: "#9C9678" }}>
+              <div className="mono text-[10px] tracking-wide mt-0.5" style={{ color: "#82806A" }}>
                 MEND THE DRIFT
               </div>
             </div>
@@ -2441,9 +2448,9 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
         {/* Auto-captured conditions */}
         <div
           className="rounded-2xl p-4 mb-4 border elev-1"
-          style={{ borderColor: "#E3D9C0", backgroundColor: "#FBF7EC" }}
+          style={{ borderColor: "rgba(255,255,255,0.09)", backgroundColor: "rgba(255,255,255,0.04)" }}
         >
-          <div className="mono text-[10px] tracking-[0.16em] uppercase mb-2.5 flex items-center gap-1.5" style={{ color: "#8A8367" }}>
+          <div className="mono text-[10px] tracking-[0.16em] uppercase mb-2.5 flex items-center gap-1.5" style={{ color: "#93907A" }}>
             <MapPin size={11} /> Conditions
           </div>
           {capturing ? (
@@ -2461,7 +2468,7 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
                 </div>
               </div>
               {draft.lat != null && (
-                <div className="mono text-[10px] mt-2" style={{ color: "#9C9678" }}>
+                <div className="mono text-[10px] mt-2" style={{ color: "#82806A" }}>
                   Pinned: {draft.lat.toFixed(4)}, {draft.lon.toFixed(4)}
                 </div>
               )}
@@ -2480,7 +2487,7 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
                 </div>
               </StampButton>
 
-              <div className="mono text-[10px] tracking-[0.16em] uppercase mt-2 mb-1.5" style={{ color: "#8A8367" }}>
+              <div className="mono text-[10px] tracking-[0.16em] uppercase mt-2 mb-1.5" style={{ color: "#93907A" }}>
                 Or enter coordinates manually
               </div>
               <div className="flex gap-2 items-center">
@@ -2491,7 +2498,7 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
                     placeholder="Latitude"
                     inputMode="decimal"
                     className="field-input w-full text-xs mono outline-none border rounded-xl px-3 py-2"
-                    style={{ color: INK, borderColor: "#D9CFB5", backgroundColor: "#FBF7EC" }}
+                    style={{ color: INK, borderColor: "rgba(255,255,255,0.09)", backgroundColor: "rgba(255,255,255,0.04)" }}
                   />
                 </div>
                 <div className="flex-1">
@@ -2501,7 +2508,7 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
                     placeholder="Longitude"
                     inputMode="decimal"
                     className="field-input w-full text-xs mono outline-none border rounded-xl px-3 py-2"
-                    style={{ color: INK, borderColor: "#D9CFB5", backgroundColor: "#FBF7EC" }}
+                    style={{ color: INK, borderColor: "rgba(255,255,255,0.09)", backgroundColor: "rgba(255,255,255,0.04)" }}
                   />
                 </div>
                 <StampButton onClick={submitManual}>
@@ -2513,7 +2520,7 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
                   </div>
                 </StampButton>
               </div>
-              <div className="mono text-[9px] mt-1" style={{ color: "#9C9678" }}>
+              <div className="mono text-[9px] mt-1" style={{ color: "#82806A" }}>
                 Tip: drop a pin in Maps at your spot, then copy the coordinates here.
               </div>
             </div>
@@ -2527,7 +2534,7 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
                 {new Date(draft.timestamp).toLocaleString()}
               </div>
               {draft.gaugeName && (
-                <div className="col-span-2 text-[10px]" style={{ color: "#9C9678" }}>
+                <div className="col-span-2 text-[10px]" style={{ color: "#82806A" }}>
                   Nearest gauge: {draft.gaugeName} ({draft.gaugeDistance?.toFixed(1)} mi)
                 </div>
               )}
@@ -2556,7 +2563,7 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
         <FieldArea label="Notes (optional)" value={draft.notes} onChange={set("notes")} placeholder="Seam behind the boulder, sipping rise" />
 
         <StampButton onClick={onSave} className="w-full mt-3">
-          <div className="grad-rust press w-full py-3.5 rounded-2xl stencil text-xl flex items-center justify-center gap-2 elev-1" style={{ color: PAPER }}>
+          <div className="grad-rust press w-full py-3.5 rounded-2xl stencil text-xl flex items-center justify-center gap-2 elev-1 glow-rust-soft" style={{ color: PAPER }}>
             <Check size={18} /> SAVE ENTRY
           </div>
         </StampButton>
@@ -2568,12 +2575,12 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
 
 function ChipRow({ items, onPick }) {
   return (
-    <div className="flex gap-2 overflow-x-auto -mt-1.5 mb-3.5 pb-1">
+    <div className="chip-scroll flex gap-2 overflow-x-auto -mt-1.5 mb-3.5 pb-1">
       {items.slice(0, 12).map((v) => (
         <StampButton key={v} onClick={() => onPick(v)}>
           <div
             className="chip mono text-[10px] px-3 py-1.5 rounded-full border whitespace-nowrap font-medium"
-            style={{ borderColor: "#D9CFB5", color: "#6B6449", backgroundColor: "#FBF7EC" }}
+            style={{ borderColor: "rgba(255,255,255,0.09)", color: "#9E9A82", backgroundColor: "rgba(255,255,255,0.04)" }}
           >
             {v}
           </div>
@@ -2586,7 +2593,7 @@ function ChipRow({ items, onPick }) {
 function Field({ label, value, onChange, placeholder }) {
   return (
     <div className="mb-3.5">
-      <label className="mono text-[10px] tracking-[0.16em] uppercase" style={{ color: "#8A8367" }}>
+      <label className="mono text-[10px] tracking-[0.16em] uppercase" style={{ color: "#93907A" }}>
         {label}
       </label>
       <input
@@ -2594,7 +2601,7 @@ function Field({ label, value, onChange, placeholder }) {
         onChange={onChange}
         placeholder={placeholder}
         className="field-input w-full text-sm font-medium outline-none border rounded-xl px-3.5 py-2.5 mt-1.5"
-        style={{ color: INK, borderColor: "#D9CFB5", backgroundColor: "#FBF7EC" }}
+        style={{ color: INK, borderColor: "rgba(255,255,255,0.09)", backgroundColor: "rgba(255,255,255,0.04)" }}
       />
     </div>
   );
@@ -2603,7 +2610,7 @@ function Field({ label, value, onChange, placeholder }) {
 function FieldArea({ label, value, onChange, placeholder }) {
   return (
     <div className="mb-3.5">
-      <label className="mono text-[10px] tracking-[0.16em] uppercase" style={{ color: "#8A8367" }}>
+      <label className="mono text-[10px] tracking-[0.16em] uppercase" style={{ color: "#93907A" }}>
         {label}
       </label>
       <textarea
@@ -2612,7 +2619,7 @@ function FieldArea({ label, value, onChange, placeholder }) {
         placeholder={placeholder}
         rows={2}
         className="field-input w-full text-sm font-medium outline-none border rounded-xl px-3.5 py-2.5 mt-1.5 resize-none"
-        style={{ color: INK, borderColor: "#D9CFB5", backgroundColor: "#FBF7EC" }}
+        style={{ color: INK, borderColor: "rgba(255,255,255,0.09)", backgroundColor: "rgba(255,255,255,0.04)" }}
       />
     </div>
   );
