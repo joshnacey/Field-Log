@@ -18,6 +18,30 @@ const PANEL = "#171A0F"; // modal / popover surface
 
 const SPECIES_OPTIONS = ["Rainbow Trout", "Brown Trout", "Cutthroat Trout", "Brook Trout", "Bull Trout", "Whitefish", "Other"];
 
+// Starter fly box shown in the quick-pick until real catch history takes over.
+// These are proven South Fork Snake / Henry's Fork / Green River / Teton patterns
+// covering dries, nymphs, and streamers, so there's always a useful list to tap
+// even before a single catch has been logged. Real logged flies always outrank
+// these (see topFlies below), so as usage builds up, this list quietly fades out
+// fly by fly and gets replaced by whatever the guide is actually using.
+const SEED_FLIES = [
+  "Chubby Chernobyl",
+  "Parachute Adams",
+  "Purple Haze",
+  "Royal Wulff",
+  "Elk Hair Caddis",
+  "PMD Comparadun",
+  "Yellow Sally",
+  "Pat's Rubber Legs",
+  "Pheasant Tail Nymph",
+  "Prince Nymph",
+  "Zebra Midge",
+  "Rainbow Warrior",
+  "San Juan Worm",
+  "Girdle Bug",
+  "Woolly Bugger (olive)",
+];
+
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 3958.8;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -2688,10 +2712,27 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
       if (!f) continue;
       counts[f] = (counts[f] || 0) + 1;
     }
-    return Object.entries(counts)
+    const ranked = Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 15)
       .map(([name]) => name);
+
+    // Top out at 15 with the starter fly box until real usage fills every slot.
+    // Actually-logged flies always sort first (they all have a count of 1+),
+    // so a starter fly disappears from the list the moment 15 distinct flies
+    // have real catches behind them. A seed fly is also skipped if it's just
+    // a sized variant of one already logged ("Elk Hair Caddis" vs. the
+    // real-world "Elk Hair Caddis #14") so the list doesn't show both.
+    const rankedLower = ranked.map((f) => f.toLowerCase());
+    for (const f of SEED_FLIES) {
+      if (ranked.length >= 15) break;
+      const fLower = f.toLowerCase();
+      const isDuplicate = rankedLower.some((r) => r === fLower || r.startsWith(fLower + " "));
+      if (!isDuplicate) {
+        ranked.push(f);
+        rankedLower.push(fLower);
+      }
+    }
+    return ranked.slice(0, 15);
   }, [entries]);
 
   const submitManual = async () => {
