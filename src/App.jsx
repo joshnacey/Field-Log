@@ -2499,6 +2499,21 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
     return Array.from(new Set(pool.map((e) => e.section.trim()))).sort();
   }, [entries, draft.river]);
 
+  // Ranks flies by how often they've actually caught fish, most-used first,
+  // so the quick-pick surfaces what's working instead of an alphabetical list.
+  const topFlies = useMemo(() => {
+    const counts = {};
+    for (const e of entries || []) {
+      const f = (e.fly || "").trim();
+      if (!f) continue;
+      counts[f] = (counts[f] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([name]) => name);
+  }, [entries]);
+
   const submitManual = async () => {
     const lat = parseFloat(manualLat);
     const lon = parseFloat(manualLon);
@@ -2659,6 +2674,9 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
         )}
 
         <Field label="Fly used" value={draft.fly} onChange={set("fly")} placeholder="e.g. Parachute Adams #16" />
+        {topFlies.length > 0 && (
+          <ChipRow items={topFlies} onPick={(v) => pick("fly", v)} />
+        )}
         <Field label="Species (optional)" value={draft.species} onChange={set("species")} placeholder="e.g. Brown Trout" />
         <ChipRow items={SPECIES_OPTIONS} onPick={(v) => pick("species", v)} />
         <Field label="Size, inches (optional)" value={draft.size} onChange={set("size")} placeholder="e.g. 18" />
