@@ -860,8 +860,8 @@ export default function App() {
   if (authUser === undefined) {
     return (
       <div
-        className="min-h-screen w-full flex items-center justify-center"
-        style={{ backgroundColor: BG, color: INK }}
+        className="topo-bg min-h-screen w-full flex items-center justify-center"
+        style={{ color: INK }}
       >
         <style>{`@import url('${FONT_IMPORT}'); .mono { font-family: 'JetBrains Mono', monospace; }`}</style>
         <div className="flex items-center gap-2 mono text-sm" style={{ color: OLIVE }}>
@@ -877,8 +877,8 @@ export default function App() {
 
   return (
     <div
-      className="min-h-screen w-full"
-      style={{ backgroundColor: BG, color: INK, fontFamily: "Inter, sans-serif" }}
+      className="topo-bg min-h-screen w-full"
+      style={{ color: INK, fontFamily: "Inter, sans-serif" }}
     >
       <style>{`@import url('${FONT_IMPORT}');
         .stencil { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.06em; }
@@ -902,7 +902,7 @@ export default function App() {
               src={LOGO_DATA_URI}
               alt="Profile"
               className="w-11 h-11 rounded-full lift"
-              style={{ border: `2px solid ${RUST}`, boxShadow: "0 4px 12px rgba(0,0,0,0.35)" }}
+              style={{ border: `1px solid ${RUST}`, boxShadow: "0 4px 12px rgba(0,0,0,0.35)" }}
             />
           </StampButton>
         </div>
@@ -1119,7 +1119,7 @@ function AuthScreen() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col" style={{ backgroundColor: BG, color: INK, fontFamily: "Inter, sans-serif" }}>
+    <div className="topo-bg min-h-screen w-full flex flex-col" style={{ color: INK, fontFamily: "Inter, sans-serif" }}>
       <style>{`@import url('${FONT_IMPORT}');
         .stencil { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.06em; }
         .mono { font-family: 'JetBrains Mono', monospace; }
@@ -1127,7 +1127,7 @@ function AuthScreen() {
       `}</style>
 
       <div className="grad-header paper-texture px-6 pt-20 pb-12 text-center elev-header">
-        <img src={LOGO_DATA_URI} alt="Mend the Drift" className="w-24 h-24 rounded-full mx-auto mb-5" style={{ border: `3px solid ${RUST}`, backgroundColor: "#000", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }} />
+        <img src={LOGO_DATA_URI} alt="Mend the Drift" className="w-24 h-24 rounded-full mx-auto mb-5 glossy" style={{ border: `1px solid ${RUST}`, backgroundColor: "#000", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }} />
         <div className="stencil text-5xl leading-none" style={{ color: PAPER }}>
           FIELD LOG
         </div>
@@ -1243,8 +1243,8 @@ function LogView({ onStartCatch, recent, loaded, guideName, onRequestDelete }) {
           className="rounded-full w-44 h-44 flex flex-col items-center justify-center mx-auto lift"
         >
           <div
-            className="rounded-full w-44 h-44 flex items-center justify-center overflow-hidden elev-2"
-            style={{ backgroundColor: "#000", border: `3px solid ${RUST}` }}
+            className="rounded-full w-44 h-44 flex items-center justify-center overflow-hidden elev-2 glossy"
+            style={{ backgroundColor: "#000", border: `1px solid ${RUST}` }}
           >
             <img
               src={LOGO_DATA_URI}
@@ -2422,7 +2422,7 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
               src={LOGO_DATA_URI}
               alt="Mend the Drift"
               className="w-9 h-9 rounded-full"
-              style={{ border: `2px solid ${RUST}` }}
+              style={{ border: `1px solid ${RUST}` }}
             />
             <div>
               <div className="stencil text-2xl leading-none" style={{ color: PAPER }}>
