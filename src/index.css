@@ -59,6 +59,13 @@ body {
 .grad-rust {
   background: linear-gradient(140deg, #C1502F 0%, #B5482A 50%, #9A3D22 100%);
 }
+/* Compound selector beats the single-class .paper-texture rule regardless of
+   source order, so the dark gradient always shows under the dot texture. */
+.grad-header.paper-texture {
+  background-image: radial-gradient(rgba(241, 234, 218, 0.08) 1px, transparent 1px),
+    linear-gradient(150deg, #2A2D1B 0%, #363B24 55%, #3D4128 100%);
+  background-size: 16px 16px, auto;
+}
 
 /* ---------- overlay w/ blur ---------- */
 .overlay-blur {
