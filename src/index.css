@@ -50,7 +50,7 @@ body {
   background-repeat: no-repeat;
   pointer-events: none;
 }
-.topo-bg > * {
+.topo-bg > *:not(.fixed) {
   position: relative;
   z-index: 1;
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter, Cell } from "recharts";
-import { Fish, MapPin, Loader2, BookOpen, TrendingUp, Plus, X, Check, AlertTriangle, Map as MapIcon, Trash2, ClipboardList, Target, LogOut, WifiOff, CloudUpload } from "lucide-react";
-import { saveCatch as saveCatchToDb, loadCatches, deleteCatch, saveAAR as saveAARToDb, loadAARs, deleteAAR, watchAuth, signIn, signUp, signOut, authErrorMessage } from "./firebase.js";
+import { Fish, MapPin, Loader2, BookOpen, TrendingUp, Plus, X, Check, AlertTriangle, Map as MapIcon, Trash2, ClipboardList, Target, LogOut, WifiOff, CloudUpload, Pencil } from "lucide-react";
+import { saveCatch as saveCatchToDb, updateCatch as updateCatchToDb, loadCatches, deleteCatch, saveAAR as saveAARToDb, loadAARs, deleteAAR, watchAuth, signIn, signUp, signOut, authErrorMessage } from "./firebase.js";
 
 const FONT_IMPORT = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap";
 
@@ -15,6 +15,8 @@ const OLIVE = "#A8B07A"; // sage — headings/secondary
 const OLIVE_DK = "#2A2D1B";
 const BG = "#12140D"; // page background
 const PANEL = "#171A0F"; // modal / popover surface
+
+const SPECIES_OPTIONS = ["Rainbow Trout", "Brown Trout", "Cutthroat Trout", "Brook Trout", "Bull Trout", "Whitefish", "Other"];
 
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 3958.8;
@@ -583,19 +585,55 @@ export default function App() {
     locateAndFill();
   };
 
+  // Reopens the log form pre-filled to edit an already-logged catch. Keeps the
+  // original GPS/conditions/timestamp — only the visible form fields are editable —
+  // so we do NOT re-run locateAndFill().
+  const startEditCatch = (entry) => {
+    setCaptureError(null);
+    setDraft({ ...entry });
+    setModalOpen(true);
+  };
+
   const saveCatch = async () => {
     if (!draft || savingCatch) return;
     if (!(draft.fly || "").trim() && !(draft.species || "").trim()) {
       showToast("Add a fly or species first");
       return;
     }
+    const isEdit = !!draft.id;
     setSavingCatch(true);
-    const entry = {
-      ...draft,
-      timestamp: Date.now(),
-      guide: guideName || "Unnamed guide",
-      uid: authUser?.uid || null,
-    };
+
+    // An edit must not reassign authorship or catch time, so keep the draft's own
+    // timestamp/guide/uid. A fresh catch stamps them now.
+    const entry = isEdit
+      ? { ...draft }
+      : {
+          ...draft,
+          timestamp: Date.now(),
+          guide: guideName || "Unnamed guide",
+          uid: authUser?.uid || null,
+        };
+
+    if (isEdit) {
+      if (!navigator.onLine) {
+        showToast("You're offline — try again once you have signal");
+        setSavingCatch(false);
+        return;
+      }
+      try {
+        const { id, ...fields } = entry;
+        await updateCatchToDb(id, fields);
+        showToast("Catch updated");
+        setModalOpen(false);
+        setDraft(null);
+        loadEntries();
+      } catch (err) {
+        console.error("Update failed:", err);
+        showToast("Couldn't save changes — try again");
+      }
+      setSavingCatch(false);
+      return;
+    }
 
     const stash = () => {
       queueEntry(QUEUE_CATCHES, entry);
@@ -972,6 +1010,7 @@ export default function App() {
             loaded={entriesLoaded}
             guideName={guideName}
             onRequestDelete={requestDelete}
+            onEdit={startEditCatch}
           />
         )}
         {view === "history" && (
@@ -980,6 +1019,7 @@ export default function App() {
             loaded={entriesLoaded}
             guideName={guideName}
             onRequestDelete={requestDelete}
+            onEdit={startEditCatch}
           />
         )}
         {view === "map" && <MapView entries={entries} loaded={entriesLoaded} />}
@@ -1234,7 +1274,7 @@ function NavButton({ active, onClick, icon, label }) {
   );
 }
 
-function LogView({ onStartCatch, recent, loaded, guideName, onRequestDelete }) {
+function LogView({ onStartCatch, recent, loaded, guideName, onRequestDelete, onEdit }) {
   return (
     <div className="animate-fade">
       <div className="text-center py-10">
@@ -1281,6 +1321,7 @@ function LogView({ onStartCatch, recent, loaded, guideName, onRequestDelete }) {
               compact
               canDelete={ownsEntry(e, guideName)}
               onRequestDelete={onRequestDelete}
+              onEdit={onEdit}
             />
           ))}
         </div>
@@ -1289,16 +1330,19 @@ function LogView({ onStartCatch, recent, loaded, guideName, onRequestDelete }) {
   );
 }
 
-function EntryCard({ entry, compact, canDelete, onRequestDelete }) {
+function EntryCard({ entry, compact, canDelete, onRequestDelete, onEdit }) {
   const date = new Date(entry.timestamp);
   const timerRef = useRef(null);
+  const firedRef = useRef(false); // long-press completed — suppress the tap-to-edit click
   const [held, setHeld] = useState(false);
 
   const startHold = () => {
     if (!canDelete) return;
+    firedRef.current = false;
     setHeld(true);
     timerRef.current = setTimeout(() => {
       setHeld(false);
+      firedRef.current = true;
       onRequestDelete(entry);
     }, 600);
   };
@@ -1309,6 +1353,14 @@ function EntryCard({ entry, compact, canDelete, onRequestDelete }) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+  };
+
+  const handleClick = () => {
+    if (firedRef.current) {
+      firedRef.current = false;
+      return;
+    }
+    if (canDelete && onEdit) onEdit(entry);
   };
 
   useEffect(() => () => timerRef.current && clearTimeout(timerRef.current), []);
@@ -1322,6 +1374,7 @@ function EntryCard({ entry, compact, canDelete, onRequestDelete }) {
       onMouseDown={startHold}
       onMouseUp={cancelHold}
       onMouseLeave={cancelHold}
+      onClick={handleClick}
       onContextMenu={(e) => {
         if (canDelete) e.preventDefault();
       }}
@@ -1330,6 +1383,7 @@ function EntryCard({ entry, compact, canDelete, onRequestDelete }) {
         borderColor: held ? RUST : "rgba(255,255,255,0.09)",
         backgroundColor: held ? "rgba(181,72,42,0.16)" : "rgba(255,255,255,0.04)",
         transform: held ? "scale(0.98)" : "scale(1)",
+        cursor: canDelete && onEdit ? "pointer" : "default",
         WebkitUserSelect: canDelete ? "none" : "auto",
         userSelect: canDelete ? "none" : "auto",
         WebkitTouchCallout: "none",
@@ -1369,7 +1423,9 @@ function EntryCard({ entry, compact, canDelete, onRequestDelete }) {
         </div>
       )}
       {canDelete && (
-        <div className="mono text-[9px] mt-2.5 flex items-center gap-1" style={{ color: "#82806A" }}>
+        <div className="mono text-[9px] mt-2.5 flex items-center gap-1.5" style={{ color: "#82806A" }}>
+          <Pencil size={9} /> Tap to edit
+          <span aria-hidden="true">·</span>
           <Trash2 size={9} /> Press and hold to delete
         </div>
       )}
@@ -1474,7 +1530,7 @@ function DeleteConfirm({ entry, busy, onCancel, onConfirm }) {
   );
 }
 
-function HistoryView({ entries, loaded, guideName, onRequestDelete }) {
+function HistoryView({ entries, loaded, guideName, onRequestDelete, onEdit }) {
   const f = useWaterFilter(entries);
 
   if (!loaded) return <LoadingRow />;
@@ -1511,6 +1567,7 @@ function HistoryView({ entries, loaded, guideName, onRequestDelete }) {
             entry={e}
             canDelete={ownsEntry(e, guideName)}
             onRequestDelete={onRequestDelete}
+            onEdit={onEdit}
           />
         ))}
       </div>
@@ -1815,6 +1872,18 @@ function PatternsView({ entries }) {
       .slice(0, 8);
   }, [data]);
 
+  const speciesData = useMemo(() => {
+    const counts = {};
+    data.forEach((e) => {
+      const s = e.species?.trim() || "Unlogged";
+      counts[s] = (counts[s] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+  }, [data]);
+
   const flyData = useMemo(() => {
     const counts = {};
     data.forEach((e) => {
@@ -1860,6 +1929,7 @@ function PatternsView({ entries }) {
   const bestWater = useMemo(() => bestBand(waterData), [waterData]);
   const bestFlow = useMemo(() => bestBand(flowData), [flowData]);
   const topFly = useMemo(() => topOf(data, (e) => e.fly?.trim()), [data]);
+  const topSpecies = useMemo(() => topOf(data, (e) => e.species?.trim()), [data]);
   const topSpot = useMemo(() => {
     const geo = data.filter((e) => e.lat != null && e.lon != null);
     const spots = clusterEntries(geo);
@@ -1912,6 +1982,7 @@ function PatternsView({ entries }) {
             value={bestFlow ? `${bestFlow.band}–${bestFlow.band + 250} cfs · ${bestFlow.count} fish` : null}
           />
           <ReadLine label="Top fly" value={topFly ? `${topFly.name} · ${topFly.count} fish` : null} />
+          <ReadLine label="Top species" value={topSpecies ? `${topSpecies.name} · ${topSpecies.count} fish` : null} />
           <ReadLine
             label="Best spot"
             value={
@@ -1947,6 +2018,35 @@ function PatternsView({ entries }) {
               <Tooltip contentStyle={TOOLTIP_STYLE} cursor={TOOLTIP_CURSOR} />
               <Bar dataKey="count" radius={[0, 6, 6, 0]}>
                 {sectionData.map((_, i) => (
+                  <Cell key={i} fill={i === 0 ? RUST : OLIVE} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartBlock>
+      )}
+
+      {speciesData.length > 1 && (
+        <ChartBlock title="CATCHES BY SPECIES" subtitle="HOW YOUR FISHING BREAKS DOWN">
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={speciesData} layout="vertical" margin={{ left: 10, right: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.09)" horizontal={false} />
+              <XAxis
+                type="number"
+                tick={{ fontSize: 10, fontFamily: "JetBrains Mono", fill: "#9E9A82" }}
+                stroke="#9E9A82"
+                allowDecimals={false}
+              />
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={100}
+                tick={{ fontSize: 9, fontFamily: "JetBrains Mono", fill: "#9E9A82" }}
+                stroke="#9E9A82"
+              />
+              <Tooltip contentStyle={TOOLTIP_STYLE} cursor={TOOLTIP_CURSOR} />
+              <Bar dataKey="count" radius={[0, 6, 6, 0]}>
+                {speciesData.map((_, i) => (
                   <Cell key={i} fill={i === 0 ? RUST : OLIVE} />
                 ))}
               </Bar>
@@ -2379,6 +2479,7 @@ function AARDeleteConfirm({ entry, busy, onCancel, onConfirm }) {
 function CatchModal({ draft, setDraft, entries, online, capturing, captureError, onSave, onClose, onRetryLocation, onManualLocate }) {
   const set = (k) => (e) => setDraft((d) => ({ ...d, [k]: e.target.value }));
   const pick = (k, v) => setDraft((d) => ({ ...d, [k]: v }));
+  const isEdit = !!draft.id;
   const [manualLat, setManualLat] = useState("");
   const [manualLon, setManualLon] = useState("");
   const [manualBusy, setManualBusy] = useState(false);
@@ -2426,7 +2527,7 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
             />
             <div>
               <div className="stencil text-2xl leading-none" style={{ color: PAPER }}>
-                LOG CATCH
+                {isEdit ? "EDIT CATCH" : "LOG CATCH"}
               </div>
               <div className="mono text-[10px] tracking-wide mt-0.5" style={{ color: "#82806A" }}>
                 MEND THE DRIFT
@@ -2453,11 +2554,11 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
           <div className="mono text-[10px] tracking-[0.16em] uppercase mb-2.5 flex items-center gap-1.5" style={{ color: "#93907A" }}>
             <MapPin size={11} /> Conditions
           </div>
-          {capturing ? (
+          {!isEdit && capturing ? (
             <div className="flex items-center gap-2 mono text-xs" style={{ color: OLIVE }}>
               <Loader2 size={14} className="animate-spin" /> Reading GPS, flow, and temperature…
             </div>
-          ) : !online ? (
+          ) : !isEdit && !online ? (
             <div>
               <div className="flex items-start gap-2 mono text-xs" style={{ color: OLIVE }}>
                 <WifiOff size={14} className="mt-0.5 shrink-0" />
@@ -2473,7 +2574,7 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
                 </div>
               )}
             </div>
-          ) : captureError ? (
+          ) : !isEdit && captureError ? (
             <div>
               <div className="flex items-start gap-2 mono text-xs mb-3" style={{ color: RUST }}>
                 <AlertTriangle size={14} className="mt-0.5 shrink-0" /> {captureError}
@@ -2559,12 +2660,13 @@ function CatchModal({ draft, setDraft, entries, online, capturing, captureError,
 
         <Field label="Fly used" value={draft.fly} onChange={set("fly")} placeholder="e.g. Parachute Adams #16" />
         <Field label="Species (optional)" value={draft.species} onChange={set("species")} placeholder="e.g. Brown Trout" />
+        <ChipRow items={SPECIES_OPTIONS} onPick={(v) => pick("species", v)} />
         <Field label="Size, inches (optional)" value={draft.size} onChange={set("size")} placeholder="e.g. 18" />
         <FieldArea label="Notes (optional)" value={draft.notes} onChange={set("notes")} placeholder="Seam behind the boulder, sipping rise" />
 
         <StampButton onClick={onSave} className="w-full mt-3">
           <div className="grad-rust press w-full py-3.5 rounded-2xl stencil text-xl flex items-center justify-center gap-2 elev-1 glow-rust-soft" style={{ color: PAPER }}>
-            <Check size={18} /> SAVE ENTRY
+            <Check size={18} /> {isEdit ? "SAVE CHANGES" : "SAVE ENTRY"}
           </div>
         </StampButton>
         </div>
