@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter, Cell } from "recharts";
-import { Fish, MapPin, Loader2, BookOpen, TrendingUp, Plus, X, Check, AlertTriangle, Map as MapIcon, Trash2, ClipboardList, Target, LogOut, WifiOff, CloudUpload, Pencil } from "lucide-react";
+import { Fish, MapPin, Loader2, BookOpen, TrendingUp, Plus, X, Check, AlertTriangle, Map as MapIcon, Trash2, ClipboardList, Target, LogOut, WifiOff, CloudUpload, Pencil, Download, Search } from "lucide-react";
 import { saveCatch as saveCatchToDb, updateCatch as updateCatchToDb, loadCatches, deleteCatch, saveAAR as saveAARToDb, loadAARs, deleteAAR, watchAuth, signIn, signUp, signOut, authErrorMessage } from "./firebase.js";
 
 const FONT_IMPORT = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap";
@@ -362,18 +362,80 @@ function totalPending() {
   return readQueue(QUEUE_CATCHES).length + readQueue(QUEUE_AARS).length;
 }
 
-function StampButton({ onClick, children, className = "" }) {
+function StampButton({ onClick, children, className = "", disabled = false }) {
   return (
     <button
-      onClick={onClick}
-      className={`active:scale-95 transition-transform duration-100 ${className}`}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      className={`active:scale-95 transition-transform duration-100 ${disabled ? "cursor-not-allowed" : ""} ${className}`}
     >
       {children}
     </button>
   );
 }
 
-function ProfilePopover({ guideName, email, onClose, onSignOut }) {
+// Turns logged catches into a CSV a guide can open in Excel/Sheets for
+// season records, client trip summaries, or tax/mileage documentation.
+function exportEntriesCsv(entries) {
+  const cols = [
+    "date",
+    "time",
+    "guide",
+    "river",
+    "section",
+    "species",
+    "sizeInches",
+    "fly",
+    "flowCfs",
+    "waterTempF",
+    "airTempF",
+    "windMph",
+    "lat",
+    "lon",
+    "notes",
+  ];
+  const escape = (v) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const rows = [...entries]
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    .map((e) => {
+      const d = e.timestamp ? new Date(e.timestamp) : null;
+      return [
+        d ? d.toLocaleDateString() : "",
+        d ? d.toLocaleTimeString() : "",
+        e.guide || "",
+        riverOf(e),
+        sectionOf(e),
+        e.species || "",
+        e.size ?? "",
+        e.fly || "",
+        e.flowCfs ?? "",
+        e.waterTempF ?? "",
+        e.airTempF ?? "",
+        e.windMph ?? "",
+        e.lat ?? "",
+        e.lon ?? "",
+        e.notes || "",
+      ]
+        .map(escape)
+        .join(",");
+    });
+  const csv = [cols.join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `field-log-catches-${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function ProfilePopover({ guideName, email, onClose, onSignOut, onExport, exportDisabled }) {
   const initials = (guideName || "?")
     .split(/\s+/)
     .slice(0, 2)
@@ -408,6 +470,19 @@ function ProfilePopover({ guideName, email, onClose, onSignOut }) {
           <div className="mono text-[9px] tracking-[0.2em] uppercase mb-2 px-1" style={{ color: "#93907A" }}>
             Signed in
           </div>
+          <StampButton onClick={onExport} className="w-full" disabled={exportDisabled}>
+            <div
+              className="w-full py-2.5 mb-2 rounded-xl mono text-xs font-semibold flex items-center justify-center gap-2 border press"
+              style={{
+                borderColor: "rgba(255,255,255,0.09)",
+                color: exportDisabled ? "#6B6858" : OLIVE,
+                backgroundColor: "rgba(255,255,255,0.03)",
+                opacity: exportDisabled ? 0.6 : 1,
+              }}
+            >
+              <Download size={14} /> Export catch log (CSV)
+            </div>
+          </StampButton>
           <StampButton onClick={onSignOut} className="w-full">
             <div
               className="w-full py-2.5 rounded-xl mono text-xs font-semibold flex items-center justify-center gap-2 border press"
@@ -715,7 +790,8 @@ export default function App() {
         entry.waterTempF = gauge.waterTempC != null ? cToF(gauge.waterTempC) : null;
         entry.gaugeName = entry.gaugeName || gauge.name || null;
         entry.gaugeDistance = entry.gaugeDistance ?? gauge.distance ?? null;
-        if (!(entry.river || "").trim()) entry.river = prettyRiver(gauge.name) || "";
+        if (!(entry.river || "").trim())
+          entry.river = overrideRiverName(entry.lat, entry.lon) || prettyRiver(gauge.name) || "";
       }
       if (weather) {
         entry.airTempF = weather.temperature_2m != null ? Math.round(weather.temperature_2m) : null;
@@ -776,6 +852,18 @@ export default function App() {
   useEffect(() => {
     if (authUser && navigator.onLine) syncQueue();
   }, [authUser, syncQueue]);
+
+  // River signal is often spotty rather than a clean on/off switch, so the
+  // browser's online/offline events can miss it. Keep quietly retrying in the
+  // background whenever there's something waiting, instead of relying only on
+  // those events or the guide noticing and tapping "Upload now."
+  useEffect(() => {
+    if (!(pendingCount > 0)) return;
+    const id = setInterval(() => {
+      if (navigator.onLine) syncQueue();
+    }, 45000);
+    return () => clearInterval(id);
+  }, [pendingCount, syncQueue]);
 
   const closeModal = () => {
     setModalOpen(false);
@@ -993,6 +1081,11 @@ export default function App() {
           email={authUser?.email}
           onClose={() => setProfileOpen(false)}
           onSignOut={() => { setProfileOpen(false); signOut(); }}
+          exportDisabled={entries.length === 0}
+          onExport={() => {
+            exportEntriesCsv(entries);
+            showToast(`Exported ${entries.length} catch${entries.length === 1 ? "" : "es"}`);
+          }}
         />
       )}
 
@@ -1556,6 +1649,19 @@ function DeleteConfirm({ entry, busy, onCancel, onConfirm }) {
 
 function HistoryView({ entries, loaded, guideName, onRequestDelete, onEdit }) {
   const f = useWaterFilter(entries);
+  const [query, setQuery] = useState("");
+
+  const searched = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return f.filtered;
+    return f.filtered.filter((e) => {
+      const hay = [e.fly, e.species, e.notes, riverOf(e), sectionOf(e), e.guide]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [f.filtered, query]);
 
   if (!loaded) return <LoadingRow />;
   if (entries.length === 0)
@@ -1569,23 +1675,34 @@ function HistoryView({ entries, loaded, guideName, onRequestDelete, onEdit }) {
 
   return (
     <div className="animate-fade">
+      <div className="relative mb-3">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#6B6858" }} />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search fly, species, notes…"
+          className="mono text-xs w-full rounded-xl pl-9 pr-3 py-2.5 outline-none border"
+          style={{ backgroundColor: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.09)", color: PAPER }}
+        />
+      </div>
+
       <WaterFilter f={f} />
 
       <div className="stencil text-xl mb-1 mt-2" style={{ color: OLIVE }}>
-        {f.label.toUpperCase()} ({f.filtered.length})
+        {f.label.toUpperCase()} ({searched.length})
       </div>
       <div className="mono text-[10px] tracking-wide mb-4" style={{ color: "#93907A" }}>
         PRESS AND HOLD YOUR OWN ENTRY TO DELETE IT
       </div>
 
-      {f.filtered.length === 0 && (
+      {searched.length === 0 && (
         <div className="mono text-xs italic" style={{ color: "#9E9A82" }}>
-          Nothing logged on this water yet.
+          {query.trim() ? "No catches match that search." : "Nothing logged on this water yet."}
         </div>
       )}
 
       <div className="space-y-3">
-        {f.filtered.map((e) => (
+        {searched.map((e) => (
           <EntryCard
             key={e.id}
             entry={e}

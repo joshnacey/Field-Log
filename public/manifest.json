@@ -1,0 +1,15 @@
+{
+  "name": "Field Log — Mend the Drift",
+  "short_name": "Field Log",
+  "description": "Shared guide journal for logging catches, conditions, and after-action reports on the water — works with no signal.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#12140D",
+  "theme_color": "#12140D",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
