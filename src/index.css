@@ -1,7 +1,325 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --rust: #B5482A;
+  --rust-lt: #D9663F;
+  --ink: #ECE7D8;
+  --bg: #12140D;
+  --panel: #171A0F;
+  --olive: #A8B07A;
+  --olive-dk: #2A2D1B;
+  --line: rgba(255, 255, 255, 0.09);
+  --muted: #9E9A82;
+  --faint: #82806A;
+  --glass: rgba(255, 255, 255, 0.045);
+  --glass-strong: rgba(255, 255, 255, 0.07);
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------- ambient topo backdrop ---------- */
+.topo-bg {
+  position: relative;
+  background-color: var(--bg);
+}
+.topo-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: linear-gradient(180deg, rgba(14, 15, 10, 0.72) 0%, rgba(14, 15, 10, 0.82) 100%),
+    url('/topo-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+.topo-bg > *:not(.fixed) {
+  position: relative;
+  z-index: 1;
+}
+
+.stencil {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.06em;
+}
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ---------- glass surfaces ---------- */
+.glass {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.glass-strong {
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px) saturate(1.15);
+  -webkit-backdrop-filter: blur(20px) saturate(1.15);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* ---------- elevation (dark) ---------- */
+.elev-1 {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.elev-2 {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 24px 64px rgba(0, 0, 0, 0.55);
+}
+.elev-header {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+.elev-nav {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+
+/* ---------- gradients ---------- */
+.grad-header {
+  background: linear-gradient(150deg, #1C1F12 0%, #24291a 55%, #2A2D1B 100%);
+}
+.grad-rust {
+  background: linear-gradient(140deg, #C1502F 0%, #B5482A 50%, #9A3D22 100%);
+}
+.grad-header.paper-texture {
+  background-image: radial-gradient(rgba(241, 234, 218, 0.05) 1px, transparent 1px),
+    linear-gradient(150deg, #1C1F12 0%, #24291a 55%, #2A2D1B 100%);
+  background-size: 16px 16px, auto;
+}
+
+/* ---------- glossy sheen (focal button) ---------- */
+.glossy {
+  position: relative;
+  overflow: hidden;
+}
+.glossy::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.24) 0%,
+    rgba(255, 255, 255, 0.08) 26%,
+    rgba(255, 255, 255, 0) 52%,
+    rgba(255, 255, 255, 0) 76%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  pointer-events: none;
+}
+.glossy::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  left: -12%;
+  width: 120%;
+  height: 58%;
+  z-index: 2;
+  background: radial-gradient(
+    ellipse 60% 100% at 38% 40%,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.22) 45%,
+    rgba(255, 255, 255, 0) 76%
+  );
+  border-radius: 50%;
+  transform: rotate(-8deg);
+  pointer-events: none;
+}
+
+/* ---------- glow accents (used sparingly) ---------- */
+.glow-rust {
+  box-shadow: 0 0 0 1px rgba(181, 72, 42, 0.35), 0 8px 28px rgba(181, 72, 42, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+}
+.glow-rust-soft {
+  box-shadow: 0 0 22px rgba(181, 72, 42, 0.28);
+}
+
+/* ---------- overlay w/ blur ---------- */
+.overlay-blur {
+  background: rgba(6, 7, 4, 0.72);
+  backdrop-filter: blur(14px) saturate(1.05);
+  -webkit-backdrop-filter: blur(14px) saturate(1.05);
+}
+
+/* ---------- micro-interactions ---------- */
+.lift {
+  transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 0.2s ease, border-color 0.18s ease, background-color 0.18s ease;
+}
+@media (hover: hover) {
+  .lift:hover {
+    transform: translateY(-2px);
+  }
+}
+.lift:active {
+  transform: translateY(0) scale(0.99);
+}
+.press {
+  transition: transform 0.12s ease, background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, opacity 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+.press:active {
+  transform: scale(0.96);
+}
+@media (hover: hover) {
+  .press:hover {
+    filter: brightness(1.08);
+  }
+}
+.chip {
+  transition: transform 0.16s ease, background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+.chip:active {
+  transform: scale(0.93);
+}
+
+/* ---------- scroll-edge fade for chip rows ---------- */
+.chip-scroll {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 20px, black calc(100% - 24px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, black 20px, black calc(100% - 24px), transparent 100%);
+}
+
+/* ---------- inputs ---------- */
+.field-input {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+.field-input:focus {
+  border-color: var(--rust) !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  box-shadow: 0 0 0 3px rgba(181, 72, 42, 0.22);
+}
+.field-input::placeholder {
+  color: #6f6c58;
+}
+
+:focus-visible {
+  outline: 2px solid rgba(217, 102, 63, 0.7);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---------- scrollbars ---------- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+/* ---------- animations ---------- */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translate(-50%, -12px) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+.animate-fade {
+  animation: fadeIn 0.2s ease both;
+}
+.animate-slide-up {
+  animation: slideUp 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-scale-in {
+  animation: scaleIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-toast {
+  animation: toastIn 0.28s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade, .animate-slide-up, .animate-scale-in, .animate-toast, .lift, .press, .chip {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ---------- leaflet (dark) ---------- */
+.leaflet-container {
+  background: #0E0F0A;
+  font-family: 'JetBrains Mono', monospace;
+}
+.leaflet-tile {
+  filter: brightness(0.72) saturate(0.85) contrast(1.05);
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 14px;
+  background: #1C1F14;
+  color: #ECE7D8;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.leaflet-popup-tip {
+  background: #1C1F14;
+}
+.leaflet-control-zoom a {
+  border-radius: 8px !important;
+  color: #ECE7D8 !important;
+  background: #1C1F14 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+.leaflet-control-attribution {
+  background: rgba(14, 15, 10, 0.7) !important;
+  color: #82806A !important;
+}
+.leaflet-control-attribution a {
+  color: #A8B07A !important;
+}
+
+/* ---------- recharts (dark) ---------- */
+.recharts-default-tooltip {
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6) !important;
+  background: #1C1F14 !important;
+  padding: 8px 12px !important;
+}
+.recharts-default-tooltip .recharts-tooltip-item {
+  color: #ECE7D8 !important;
+}
+.recharts-tooltip-label {
+  color: #A8B07A !important;
+  font-weight: 700 !important;
 }

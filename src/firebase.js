@@ -5,6 +5,7 @@ import {
   addDoc,
   getDocs,
   deleteDoc,
+  updateDoc,
   doc,
   query,
   orderBy,
@@ -91,6 +92,10 @@ export async function loadCatches() {
   const q = query(collection(db, "catches"), orderBy("timestamp", "desc"));
   const snapshot = await getDocs(q);
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function updateCatch(id, entry) {
+  await updateDoc(doc(db, "catches", id), entry);
 }
 
 export async function deleteCatch(id) {
