@@ -899,6 +899,22 @@ export default function App() {
     }
     const fill = async (lat, lon) => {
       const [gauge, weather] = await Promise.all([fetchNearestGauge(lat, lon), fetchAirTemp(lat, lon)]);
+
+      // Inherit river + section from catches logged within 2 miles of here,
+      // same as the Log Catch form — a guide filing an AAR is usually still on
+      // the same water they were just fishing.
+      const nearby = entries.filter(
+        (e) => e.lat != null && e.lon != null && haversine(lat, lon, e.lat, e.lon) <= 2
+      );
+      const nearRiver = topOf(
+        nearby.filter((e) => (e.river || "").trim()),
+        (e) => e.river.trim()
+      );
+      const nearSection = topOf(
+        nearby.filter((e) => (e.section || "").trim()),
+        (e) => e.section.trim()
+      );
+
       setAarDraft((d) =>
         d
           ? {
@@ -909,7 +925,13 @@ export default function App() {
               waterTempF: gauge?.waterTempC != null ? cToF(gauge.waterTempC) : null,
               gaugeName: gauge?.name ?? null,
               gaugeDistance: gauge?.distance ?? null,
-              river: (d.river || "").trim() || prettyRiver(gauge?.name) || "",
+              river:
+                (d.river || "").trim() ||
+                nearRiver?.name ||
+                overrideRiverName(lat, lon) ||
+                prettyRiver(gauge?.name) ||
+                "",
+              section: (d.section || "").trim() || nearSection?.name || "",
               airTempF: weather?.temperature_2m != null ? Math.round(weather.temperature_2m) : null,
               windMph: weather?.wind_speed_10m != null ? Math.round(weather.wind_speed_10m) : null,
               cloudCover: weather?.cloud_cover ?? null,
@@ -923,7 +945,7 @@ export default function App() {
       () => setAarCapturing(false),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
-  }, []);
+  }, [entries]);
 
   const startAar = () => {
     setAarDraft({
