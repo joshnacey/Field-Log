@@ -139,21 +139,33 @@ function topOf(list, pick) {
 }
 
 // Buckets numeric values into bands, filling empty bands between min and max.
-function bandData(list, key, size) {
+function bandData(list, key, size, maxBands = 16) {
   const vals = list.map((e) => e[key]).filter((v) => v != null && !Number.isNaN(v));
   if (vals.length === 0) return [];
+  const rawMin = Math.min(...vals);
+  const rawMax = Math.max(...vals);
+  // Widen the bucket if the raw size would generate too many bands (e.g. flow
+  // readings spanning low water to spring runoff). Keeps the axis readable
+  // instead of cramming 80+ empty bars/labels into the chart. Typical ranges
+  // never hit this, so the requested band size is used as-is most of the time.
+  const range = rawMax - rawMin;
+  let effectiveSize = size;
+  if (range / size > maxBands) {
+    effectiveSize = Math.ceil(range / maxBands / size) * size;
+  }
   const counts = {};
   vals.forEach((v) => {
-    const b = Math.floor(v / size) * size;
+    const b = Math.floor(v / effectiveSize) * effectiveSize;
     counts[b] = (counts[b] || 0) + 1;
   });
   const bands = Object.keys(counts).map(Number);
   const min = Math.min(...bands);
   const max = Math.max(...bands);
   const out = [];
-  for (let b = min; b <= max; b += size) {
-    out.push({ band: b, count: counts[b] || 0, name: `${b}–${b + size}` });
+  for (let b = min; b <= max; b += effectiveSize) {
+    out.push({ band: b, count: counts[b] || 0, name: `${b}–${b + effectiveSize}` });
   }
+  out.bandSize = effectiveSize;
   return out;
 }
 
@@ -2017,6 +2029,10 @@ function ChartBlock({ title, subtitle, children }) {
 
 function CountBars({ data, height = 200, highlightMax = true }) {
   const max = Math.max(...data.map((d) => d.count));
+  // Safety net: never render more than ~18 axis labels no matter how many bars
+  // are passed in, so a wide-range dataset can't cram illegible overlapping
+  // labels onto the chart. Skips labels evenly instead of showing all of them.
+  const labelInterval = data.length > 18 ? Math.ceil(data.length / 18) - 1 : 0;
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ left: -20, right: 8, top: 4, bottom: 0 }}>
@@ -2026,7 +2042,7 @@ function CountBars({ data, height = 200, highlightMax = true }) {
           tick={{ fontSize: 9, fontFamily: "JetBrains Mono", fill: "#9E9A82" }}
           stroke="rgba(255,255,255,0.16)"
           tickLine={false}
-          interval={0}
+          interval={labelInterval}
           angle={data.length > 8 ? -40 : 0}
           textAnchor={data.length > 8 ? "end" : "middle"}
           height={data.length > 8 ? 46 : 24}
@@ -2249,19 +2265,19 @@ function PatternsView({ entries }) {
       )}
 
       {waterData.length > 1 && (
-        <ChartBlock title="WATER TEMPERATURE AT CATCH" subtitle="2°F BANDS">
+        <ChartBlock title="WATER TEMPERATURE AT CATCH" subtitle={`${waterData.bandSize || 2}°F BANDS`}>
           <CountBars data={waterData} />
         </ChartBlock>
       )}
 
       {flowData.length > 1 && (
-        <ChartBlock title="FLOW AT CATCH" subtitle="250 CFS BANDS">
+        <ChartBlock title="FLOW AT CATCH" subtitle={`${flowData.bandSize || 250} CFS BANDS`}>
           <CountBars data={flowData} />
         </ChartBlock>
       )}
 
       {airData.length > 1 && (
-        <ChartBlock title="AIR TEMPERATURE AT CATCH" subtitle="5°F BANDS">
+        <ChartBlock title="AIR TEMPERATURE AT CATCH" subtitle={`${airData.bandSize || 5}°F BANDS`}>
           <CountBars data={airData} />
         </ChartBlock>
       )}
